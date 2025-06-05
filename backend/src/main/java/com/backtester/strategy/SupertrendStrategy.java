@@ -1,5 +1,6 @@
 package com.backtester.strategy;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.backtester.strategy.IndicatorUtils.sma;
@@ -13,13 +14,14 @@ public class SupertrendStrategy implements Strategy {
         int fast = 10;
         int slow = 30;
         if (prices.size() < slow) {
-            return new BacktestResult(initialCapital, 0);
+            return new BacktestResult(initialCapital, initialCapital, 0, prices, new ArrayList<>());
         }
 
         double cash = initialCapital;
         int position = 0;
         double peak = initialCapital;
         double maxDrawdown = 0.0;
+        List<Trade> trades = new ArrayList<>();
 
         for (int i = slow; i < prices.size(); i++) {
             double fastMa = sma(prices, i, fast);
@@ -29,9 +31,11 @@ public class SupertrendStrategy implements Strategy {
             if (fastMa > slowMa && position == 0) {
                 position = 1;
                 cash -= price;
+                trades.add(new Trade(i, price, "BUY"));
             } else if (fastMa < slowMa && position == 1) {
                 position = 0;
                 cash += price;
+                trades.add(new Trade(i, price, "SELL"));
             }
 
             double equity = cash + position * price;
@@ -41,6 +45,6 @@ public class SupertrendStrategy implements Strategy {
         }
 
         double finalCapital = cash + position * prices.get(prices.size() - 1);
-        return new BacktestResult(finalCapital, maxDrawdown);
+        return new BacktestResult(initialCapital, finalCapital, maxDrawdown, prices, trades);
     }
 }

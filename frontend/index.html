@@ -2,46 +2,78 @@
 <html>
 <head>
     <title>Backtester</title>
-    <style>
-        body { font-family: Arial; padding:20px; }
-    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>body { padding:40px; }</style>
 </head>
 <body>
-<h1>Backtester</h1>
-<form id="runForm">
-    <label>Strategy:
-        <select name="strategy" id="strategy">
-            <option>RSI</option>
-            <option>MACD</option>
-            <option>BollingerBands</option>
-            <option>Supertrend</option>
-            <option>RSI_SMA</option>
-            <option>MACD_CROSS</option>
-            <option>Bollinger_Reversal</option>
-            <option>Golden_Cross</option>
-            <option>Breakout</option>
-            <option>ADX_DI</option>
-            <option>VWAP_Pullback</option>
-            <option>RSI_EMA</option>
-            <option>MACD_Hist</option>
-            <option>Opening_Range</option>
-            <option>Scalp_Supertrend</option>
-            <option>MA_Ribbon</option>
-            <option>Mean_VWAP</option>
-        </select>
-    </label><br/>
-    <label>Symbol: <input type="text" name="symbol" id="symbol" value="RELIANCE"/></label><br/>
-    <label>Period: <input type="text" name="period" id="period" value="1d"/></label><br/>
-    <label>From: <input type="date" name="from" id="from"/></label><br/>
-    <label>To: <input type="date" name="to" id="to"/></label><br/>
-    <label>Initial Capital: <input type="number" name="capital" id="capital" value="100000"/></label><br/>
-    <button type="submit">Run</button>
+<div class="container">
+<h1 class="title">Backtester</h1>
+<form id="runForm" class="box">
+    <div class="field">
+        <label class="label">Strategy</label>
+        <div class="control">
+            <select name="strategy" id="strategy" class="select">
+                <option>RSI</option>
+                <option>MACD</option>
+                <option>BollingerBands</option>
+                <option>Supertrend</option>
+                <option>RSI_SMA</option>
+                <option>MACD_CROSS</option>
+                <option>Bollinger_Reversal</option>
+                <option>Golden_Cross</option>
+                <option>Breakout</option>
+                <option>ADX_DI</option>
+                <option>VWAP_Pullback</option>
+                <option>RSI_EMA</option>
+                <option>MACD_Hist</option>
+                <option>Opening_Range</option>
+                <option>Scalp_Supertrend</option>
+                <option>MA_Ribbon</option>
+                <option>Mean_VWAP</option>
+            </select>
+        </div>
+    </div>
+    <div class="field">
+        <label class="label">Symbol</label>
+        <div class="control"><input class="input" type="text" name="symbol" id="symbol" value="RELIANCE"></div>
+    </div>
+    <div class="field">
+        <label class="label">Period</label>
+        <div class="control">
+            <select name="period" id="period" class="select">
+                <option>1d</option>
+                <option>1m</option>
+                <option>5m</option>
+                <option>30m</option>
+                <option>1w</option>
+            </select>
+        </div>
+    </div>
+    <div class="field">
+        <label class="label">From</label>
+        <div class="control"><input class="input" type="date" name="from" id="from"></div>
+    </div>
+    <div class="field">
+        <label class="label">To</label>
+        <div class="control"><input class="input" type="date" name="to" id="to"></div>
+    </div>
+    <div class="field">
+        <label class="label">Initial Capital</label>
+        <div class="control"><input class="input" type="number" name="capital" id="capital" value="100000"></div>
+    </div>
+    <div class="control"><button class="button is-primary" type="submit">Run</button></div>
 </form>
-<pre id="result"></pre>
-<h2>History</h2>
+
+<div id="summary" class="content"></div>
+<canvas id="chart" height="300"></canvas>
+
+<h2 class="title is-4">History</h2>
 <ul id="history"></ul>
+</div>
 
 <script>
+    let chart;
     async function loadHistory() {
         const res = await fetch('/api/backtest/history');
         const hist = await res.json();
@@ -54,12 +86,30 @@
         });
     }
 
+    function renderChart(prices, trades) {
+        const ctx = document.getElementById('chart');
+        if(chart) chart.destroy();
+        const labels = prices.map((_,i)=>i+1);
+        const datasets = [{label:'Price', data:prices, borderColor:'blue', fill:false}];
+        if(trades.length) {
+            datasets.push({
+                type:'scatter',
+                label:'Trades',
+                data: trades.map(t => ({x:t.index+1, y:t.price, side:t.side})),
+                backgroundColor: trades.map(t=>t.side==='BUY'?'green':'red')
+            });
+        }
+        chart = new Chart(ctx,{type:'line',data:{labels,datasets},options:{plugins:{tooltip:{callbacks:{label:(ctx)=>{return ctx.raw.side?ctx.raw.side+': '+ctx.raw.y:ctx.parsed.y;}}}}}});
+    }
+
     document.getElementById('runForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const params = new URLSearchParams(new FormData(e.target));
         const res = await fetch('/api/backtest?' + params.toString());
         const data = await res.json();
-        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+        const pct = ((data.finalCapital - data.initialCapital)/data.initialCapital*100).toFixed(2);
+        document.getElementById('summary').innerHTML = `<p>Initial: ${data.initialCapital.toFixed(2)}</p><p>Final: ${data.finalCapital.toFixed(2)}</p><p>Profit/Loss: ${pct}%</p>`;
+        renderChart(data.prices, data.trades);
         loadHistory();
     });
 

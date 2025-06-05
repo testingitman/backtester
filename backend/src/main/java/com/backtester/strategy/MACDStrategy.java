@@ -1,5 +1,6 @@
 package com.backtester.strategy;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.backtester.strategy.IndicatorUtils.ema;
@@ -11,7 +12,7 @@ public class MACDStrategy implements Strategy {
     @Override
     public BacktestResult run(List<Double> prices, double initialCapital) {
         if (prices.size() < 35) {
-            return new BacktestResult(initialCapital, 0);
+            return new BacktestResult(initialCapital, initialCapital, 0, prices, new ArrayList<>());
         }
 
         List<Double> ema12 = ema(prices, 12);
@@ -21,6 +22,7 @@ public class MACDStrategy implements Strategy {
         int position = 0;
         double peak = initialCapital;
         double maxDrawdown = 0.0;
+        List<Trade> trades = new ArrayList<>();
         double prevMacd = 0;
         double prevSignal = 0;
 
@@ -39,9 +41,11 @@ public class MACDStrategy implements Strategy {
             if (macd > sig && prevMacd <= prevSignal && position == 0) {
                 position = 1;
                 cash -= price;
+                trades.add(new Trade(i, price, "BUY"));
             } else if (macd < sig && prevMacd >= prevSignal && position == 1) {
                 position = 0;
                 cash += price;
+                trades.add(new Trade(i, price, "SELL"));
             }
 
             double equity = cash + position * price;
@@ -54,6 +58,6 @@ public class MACDStrategy implements Strategy {
         }
 
         double finalCapital = cash + position * prices.get(prices.size() - 1);
-        return new BacktestResult(finalCapital, maxDrawdown);
+        return new BacktestResult(initialCapital, finalCapital, maxDrawdown, prices, trades);
     }
 }

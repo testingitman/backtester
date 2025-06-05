@@ -35,7 +35,8 @@ public class BacktestController {
         }
         List<Double> prices = quoteService.getPrices(symbol, period, from, to);
         BacktestResult result = strat.run(prices, capital);
-        historyService.add(strategy + " " + symbol + " => " + result.getFinalCapital());
+        double profitPct = (result.getFinalCapital() - result.getInitialCapital()) / result.getInitialCapital() * 100.0;
+        historyService.add(String.format("%s %s %.2f%%", strategy, symbol, profitPct));
         return result;
     }
 
