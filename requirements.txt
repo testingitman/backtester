@@ -1,0 +1,5 @@
+feedparser
+openai
+redis
+requests
+pyyaml
