@@ -15,6 +15,19 @@ public class StrategyFactory {
         register(new MACDStrategy());
         register(new BollingerStrategy());
         register(new SupertrendStrategy());
+        register(new RSISMACrossoverStrategy());
+        register(new MACDCrossStrategy());
+        register(new BollingerReversalStrategy());
+        register(new GoldenCrossStrategy());
+        register(new BreakoutStrategy());
+        register(new ADXDIStrategy());
+        register(new VWAPPullbackStrategy());
+        register(new RSIEMABounceStrategy());
+        register(new MACDHistogramStrategy());
+        register(new OpeningRangeBreakoutStrategy());
+        register(new ScalpingSupertrendStrategy());
+        register(new MovingAverageRibbonStrategy());
+        register(new MeanReversionVWAPStrategy());
     }
 
     private void register(Strategy s) {
