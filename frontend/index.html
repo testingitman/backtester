@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backtester</title>
+    <style>
+        body { font-family: Arial; padding:20px; }
+    </style>
+</head>
+<body>
+<h1>Backtester</h1>
+<form id="runForm">
+    <label>Strategy:
+        <select name="strategy" id="strategy">
+            <option>RSI</option>
+            <option>MACD</option>
+            <option>BollingerBands</option>
+            <option>Supertrend</option>
+            <option>RSI_SMA</option>
+            <option>MACD_CROSS</option>
+            <option>Bollinger_Reversal</option>
+            <option>Golden_Cross</option>
+            <option>Breakout</option>
+            <option>ADX_DI</option>
+            <option>VWAP_Pullback</option>
+            <option>RSI_EMA</option>
+            <option>MACD_Hist</option>
+            <option>Opening_Range</option>
+            <option>Scalp_Supertrend</option>
+            <option>MA_Ribbon</option>
+            <option>Mean_VWAP</option>
+        </select>
+    </label><br/>
+    <label>Symbol: <input type="text" name="symbol" id="symbol" value="RELIANCE"/></label><br/>
+    <label>Period: <input type="text" name="period" id="period" value="1d"/></label><br/>
+    <label>From: <input type="date" name="from" id="from"/></label><br/>
+    <label>To: <input type="date" name="to" id="to"/></label><br/>
+    <label>Initial Capital: <input type="number" name="capital" id="capital" value="100000"/></label><br/>
+    <button type="submit">Run</button>
+</form>
+<pre id="result"></pre>
+<h2>History</h2>
+<ul id="history"></ul>
+
+<script>
+    async function loadHistory() {
+        const res = await fetch('/api/backtest/history');
+        const hist = await res.json();
+        const ul = document.getElementById('history');
+        ul.innerHTML = '';
+        hist.forEach(h => {
+            const li = document.createElement('li');
+            li.textContent = h;
+            ul.appendChild(li);
+        });
+    }
+
+    document.getElementById('runForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const params = new URLSearchParams(new FormData(e.target));
+        const res = await fetch('/api/backtest?' + params.toString());
+        const data = await res.json();
+        document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+        loadHistory();
+    });
+
+    loadHistory();
+</script>
+</body>
+</html>
