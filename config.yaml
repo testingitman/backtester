@@ -4,6 +4,8 @@ telegram_chat_id: "YOUR_CHAT_ID"
 rss_feed_url: "https://www.moneycontrol.com/rss/markets.xml"
 kite_api_key: "YOUR_KITE_API_KEY"
 kite_access_token: "YOUR_KITE_ACCESS_TOKEN"
+kite_api_secret: "YOUR_KITE_API_SECRET"
+kite_redirect_uri: "http://localhost:8080/api/auth/callback"
 # default investment amount by confidence score 1-10
 confidence_investment:
   1: 0
