@@ -1,5 +1,6 @@
 package com.backtester.strategy;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.backtester.strategy.IndicatorUtils.*;
@@ -16,6 +17,7 @@ public class RSISMACrossoverStrategy implements Strategy {
         int position = 0;
         double peak = initialCapital;
         double maxDD = 0.0;
+        List<Trade> trades = new ArrayList<>();
 
         for (int i = Math.max(rsiPeriod, smaPeriod); i < prices.size(); i++) {
             double r = rsi(prices, i, rsiPeriod);
@@ -25,9 +27,11 @@ public class RSISMACrossoverStrategy implements Strategy {
             if (r < 30 && price > ma && position == 0) {
                 position = 1;
                 cash -= price;
+                trades.add(new Trade(i, price, "BUY"));
             } else if ((r > 70 || price < ma) && position == 1) {
                 position = 0;
                 cash += price;
+                trades.add(new Trade(i, price, "SELL"));
             }
 
             double equity = cash + position * price;
@@ -36,6 +40,6 @@ public class RSISMACrossoverStrategy implements Strategy {
             if (dd > maxDD) maxDD = dd;
         }
         double finalCap = cash + position * prices.get(prices.size() - 1);
-        return new BacktestResult(finalCap, maxDD);
+        return new BacktestResult(initialCapital, finalCap, maxDD, prices, trades);
     }
 }

@@ -1,5 +1,6 @@
 package com.backtester.strategy;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.backtester.strategy.IndicatorUtils.highest;
@@ -12,7 +13,8 @@ public class OpeningRangeBreakoutStrategy implements Strategy {
     @Override
     public BacktestResult run(List<Double> prices, double initialCapital) {
         int rangePeriod = 30; // first 30 bars
-        if (prices.size() <= rangePeriod) return new BacktestResult(initialCapital, 0);
+        if (prices.size() <= rangePeriod)
+            return new BacktestResult(initialCapital, initialCapital, 0, prices, new ArrayList<>());
         double high = highest(prices, rangePeriod - 1, rangePeriod);
         double low = lowest(prices, rangePeriod - 1, rangePeriod);
 
@@ -20,15 +22,18 @@ public class OpeningRangeBreakoutStrategy implements Strategy {
         int position = 0;
         double peak = initialCapital;
         double maxDD = 0.0;
+        List<Trade> trades = new ArrayList<>();
 
         for (int i = rangePeriod; i < prices.size(); i++) {
             double price = prices.get(i);
             if (price > high && position == 0) {
                 position = 1;
                 cash -= price;
+                trades.add(new Trade(i, price, "BUY"));
             } else if (price < low && position == 1) {
                 position = 0;
                 cash += price;
+                trades.add(new Trade(i, price, "SELL"));
             }
             double equity = cash + position * price;
             if (equity > peak) peak = equity;
@@ -36,6 +41,6 @@ public class OpeningRangeBreakoutStrategy implements Strategy {
             if (dd > maxDD) maxDD = dd;
         }
         double finalCap = cash + position * prices.get(prices.size()-1);
-        return new BacktestResult(finalCap, maxDD);
+        return new BacktestResult(initialCapital, finalCap, maxDD, prices, trades);
     }
 }
