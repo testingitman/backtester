@@ -24,4 +24,8 @@ public class Config {
         Object v = values.get(key);
         return v == null ? null : v.toString();
     }
+
+    public static void set(String key, String value) {
+        values.put(key, value);
+    }
 }

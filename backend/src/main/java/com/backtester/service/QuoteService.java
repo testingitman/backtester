@@ -7,10 +7,8 @@ import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,24 +55,22 @@ public class QuoteService {
         String url = String.format(
                 "https://api.kite.trade/instruments/historical/%s/%s?from=%s&to=%s&api_key=%s&access_token=%s",
                 symbol, period, from, to, apiKey, accessToken);
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("X-Kite-Version", "3")
-                .build();
         try {
-            HttpClient client = HttpClient.newHttpClient();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() != 200) {
+            URL u = new URL(url);
+            HttpURLConnection conn = (HttpURLConnection) u.openConnection();
+            conn.setRequestProperty("X-Kite-Version", "3");
+            conn.setRequestMethod("GET");
+            if (conn.getResponseCode() != 200) {
                 return new ArrayList<>();
             }
             ObjectMapper mapper = new ObjectMapper();
-            JsonNode root = mapper.readTree(response.body());
+            JsonNode root = mapper.readTree(conn.getInputStream());
             List<Double> list = new ArrayList<>();
             for (JsonNode candle : root.path("data").path("candles")) {
                 list.add(candle.get(4).asDouble()); // close price
             }
             return list;
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             e.printStackTrace();
             return new ArrayList<>();
         }

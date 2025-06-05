@@ -2,6 +2,14 @@
 
 This project provides a Java Spring Boot backend and a React frontend for running trading strategy backtests using data from the Zerodha KITE API. Price data is cached in Redis to avoid redundant requests. A small in-memory history is kept for previous runs.
 
+## Prerequisites
+
+ - Java 8 or later with Maven
+- Node.js 18+ and npm
+- Python 3.11+ (for `rss_monitor.py`)
+- A Redis server running on `localhost:6379`
+- API keys configured in `config.yaml` for Zerodha KITE (key, secret and redirect URI), OpenAI and Telegram
+
 ## Backend
 
 The backend is located in the `backend` directory. It exposes a REST endpoint `/api/backtest` that accepts strategy name, symbol, candle period (e.g. `1d`, `1m`, `5m`, `30m`, `1w`), date range and initial capital. Supported strategies now cover a wide selection including:
@@ -14,6 +22,13 @@ The backend is located in the `backend` directory. It exposes a REST endpoint `/
 All algorithms operate on any candle period provided.
 
 Price quotes are fetched from Zerodha KITE in `QuoteService` and cached in Redis and an in-memory map. Credentials are read from `config.yaml`. History of executed backtests can be retrieved from `/api/backtest/history`.
+
+Before starting the backend, update `config.yaml` with your personal API keys and ensure Redis is running. During development the application can be started with:
+
+```bash
+cd backend
+mvn spring-boot:run
+```
 
 ## Frontend
 
@@ -36,20 +51,35 @@ npx serve -s dist
 
 ## Building
 
-This is a standard Maven project:
+This is a standard Maven project targeting Java 8:
 
 ```bash
 cd backend
 mvn package
 ```
 
-Running the Spring Boot application will serve the API on `localhost:8080`.
+The generated JAR can be started with:
+
+```bash
+java -jar target/*.jar
+```
+
+The API will then be available on `localhost:8080`.
+
+## Zerodha Login
+
+Set `kite_api_key`, `kite_api_secret` and `kite_redirect_uri` in `config.yaml`.
+After starting the backend visit `http://localhost:5173/login` (during
+development) and click **Login with Zerodha**. Complete the OAuth flow and the
+backend will store the returned access token in memory.
 
 ## RSS Monitor
 
 The `rss_monitor.py` script polls the feed defined in `config.yaml` every five minutes,
 analyzes new headlines with GPT-4 and stores the result in Redis. Summaries are
 also posted to the configured Telegram channel.
+
+Edit `config.yaml` with your OpenAI and Telegram credentials before running and make sure Redis is running.
 
 Install Python dependencies and run the monitor with:
 
