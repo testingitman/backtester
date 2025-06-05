@@ -1,0 +1,18 @@
+openai_api_key: "YOUR_OPENAI_API_KEY"
+telegram_token: "YOUR_TELEGRAM_TOKEN"
+telegram_chat_id: "YOUR_CHAT_ID"
+rss_feed_url: "https://www.moneycontrol.com/rss/markets.xml"
+kite_api_key: "YOUR_KITE_API_KEY"
+kite_access_token: "YOUR_KITE_ACCESS_TOKEN"
+# default investment amount by confidence score 1-10
+confidence_investment:
+  1: 0
+  2: 0
+  3: 0
+  4: 0
+  5: 0
+  6: 0
+  7: 0
+  8: 0
+  9: 0
+  10: 0
