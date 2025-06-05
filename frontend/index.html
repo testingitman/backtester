@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backtester</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="container py-3">
+<h1 class="mb-4">Backtester</h1>
+<form id="runForm" class="row g-2 mb-4">
+    <div class="col-md-3">
+        <label class="form-label">Strategy
+            <select name="strategy" id="strategy" class="form-select">
+                <option>RSI</option>
+                <option>MACD</option>
+                <option>BollingerBands</option>
+                <option>Supertrend</option>
+                <option>RSI_SMA</option>
+                <option>MACD_CROSS</option>
+                <option>Bollinger_Reversal</option>
+                <option>Golden_Cross</option>
+                <option>Breakout</option>
+                <option>ADX_DI</option>
+                <option>VWAP_Pullback</option>
+                <option>RSI_EMA</option>
+                <option>MACD_Hist</option>
+                <option>Opening_Range</option>
+                <option>Scalp_Supertrend</option>
+                <option>MA_Ribbon</option>
+                <option>Mean_VWAP</option>
+            </select>
+        </label>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Symbol
+            <input type="text" name="symbol" id="symbol" value="RELIANCE" class="form-control" />
+        </label>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Period
+            <select name="period" id="period" class="form-select">
+                <option value="1m">1m</option>
+                <option value="5m">5m</option>
+                <option value="30m">30m</option>
+                <option value="1d" selected>1d</option>
+                <option value="1w">1w</option>
+            </select>
+        </label>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">From
+            <input type="date" name="from" id="from" class="form-control" />
+        </label>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">To
+            <input type="date" name="to" id="to" class="form-control" />
+        </label>
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">Initial Capital
+            <input type="number" name="capital" id="capital" value="100000" class="form-control" />
+        </label>
+    </div>
+    <div class="col-12">
+        <button class="btn btn-primary" type="submit">Run</button>
+    </div>
+</form>
+
+<div id="summary" class="mb-3"></div>
+<canvas id="chart" height="300"></canvas>
+
+<h2 class="mt-4">History</h2>
+<ul id="history" class="list-group"></ul>
+
+<script>
+    let chart;
+
+    async function loadHistory() {
+        const res = await fetch('/api/backtest/history');
+        const hist = await res.json();
+        const ul = document.getElementById('history');
+        ul.innerHTML = '';
+        hist.forEach(h => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item';
+            li.textContent = h;
+            ul.appendChild(li);
+        });
+    }
+
+    function drawChart(candles, trades) {
+        const labels = candles.map(c => c.time);
+        const prices = candles.map(c => c.close);
+        const buy = trades.map(t => ({x: t.entryIndex, y: prices[t.entryIndex]}));
+        const sell = trades.map(t => ({x: t.exitIndex, y: prices[t.exitIndex]}));
+        const ctx = document.getElementById('chart').getContext('2d');
+        if (chart) chart.destroy();
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {label: 'Close', data: prices, borderColor: 'blue', fill: false},
+                    {label: 'Buy', data: buy, pointBackgroundColor: 'green', type: 'scatter', pointRadius: 5},
+                    {label: 'Sell', data: sell, pointBackgroundColor: 'red', type: 'scatter', pointRadius: 5}
+                ]
+            },
+            options: { scales: { x: { display: false } } }
+        });
+    }
+
+    document.getElementById('runForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const params = new URLSearchParams(new FormData(e.target));
+        const res = await fetch('/api/backtest?' + params.toString());
+        const data = await res.json();
+        document.getElementById('summary').innerHTML =
+            `Initial: ${data.initialCapital} Final: ${data.finalCapital} ` +
+            `Profit: ${data.profitPercent.toFixed(2)}% Drawdown: ${(data.maxDrawdown*100).toFixed(2)}%`;
+        drawChart(data.candles || [], data.trades || []);
+        loadHistory();
+    });
+
+    loadHistory();
+</script>
+</body>
+</html>
