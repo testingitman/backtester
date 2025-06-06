@@ -9,10 +9,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisConnectionException;
+import redis.clients.jedis.resps.Tuple;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.stream.Collectors;
@@ -26,60 +31,93 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class QuoteService {
     // Jedis(String) expects a redis URI starting with redis://
-    private final Jedis jedis = new Jedis("redis://localhost:6379");
-    private final Map<String, List<Double>> memoryCache = new ConcurrentHashMap<>();
+    private final Jedis jedis;
+
+    public QuoteService() {
+        this(new Jedis("redis://localhost:6379"));
+    }
+
+    public QuoteService(Jedis jedis) {
+        this.jedis = jedis;
+    }
+    private final Map<String, NavigableMap<Long, Double>> memoryCache = new ConcurrentHashMap<>();
     private List<Map<String, String>> instrumentCache = null;
     private static final Logger logger = LoggerFactory.getLogger(QuoteService.class);
     private static final Set<String> NIFTY_SYMBOLS = loadNiftySymbols();
 
+    static class Candle {
+        final long timestamp;
+        final double close;
+        Candle(long timestamp, double close) { this.timestamp = timestamp; this.close = close; }
+    }
+
+    private static final DateTimeFormatter TS_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ");
+
+    private long parseDate(String d) {
+        return LocalDate.parse(d).atStartOfDay(ZoneOffset.UTC).toEpochSecond();
+    }
+
+    private long parseTimestamp(String ts) {
+        return ZonedDateTime.parse(ts, TS_FORMAT).toInstant().getEpochSecond();
+    }
+
     public List<Double> getPrices(String symbol, String period, String from, String to) {
         String token = resolveToken(symbol);
-        String key = token + ":" + period + ":" + from + ":" + to;
+        String key = token + ":" + period;
+        long fromEpoch = parseDate(from);
+        long toEpoch = parseDate(to);
         logger.debug("Fetching prices for {} {} from {} to {}", token, period, from, to);
+
         try {
-            if (memoryCache.containsKey(key)) {
+            NavigableMap<Long, Double> map = memoryCache.get(key);
+            if (map != null) {
                 logger.debug("Returning prices from memory cache for {}", key);
-                return memoryCache.get(key);
-            } else if (jedis.exists(key)) {
+                return new ArrayList<>(map.subMap(fromEpoch, true, toEpoch, true).values());
+            }
+
+            if (jedis.exists(key)) {
                 logger.debug("Returning prices from redis cache for {}", key);
-                List<Double> cached = parse(jedis.lrange(key, 0, -1));
-                memoryCache.put(key, cached);
-                return cached;
+                Set<Tuple> tuples = jedis.zrangeByScoreWithScores(key, fromEpoch, toEpoch);
+                if (!tuples.isEmpty()) {
+                    List<Double> prices = new ArrayList<>();
+                    for (Tuple t : tuples) {
+                        prices.add(Double.parseDouble(t.getElement()));
+                    }
+                    return prices;
+                }
             }
         } catch (JedisConnectionException e) {
             logger.error("Redis not available", e);
             throw new IllegalStateException("Redis not available", e);
         }
 
-        // Placeholder for Zerodha KITE API call
-        List<Double> prices = fetchFromKite(token, period, from, to);
+        List<Candle> candles = fetchFromKite(token, period, from, to);
 
-        if (prices != null) {
+        List<Double> prices = new ArrayList<>();
+        if (candles != null) {
             try {
-                logger.debug("Caching {} prices for {}", prices.size(), key);
-                for (Double p : prices) {
-                    jedis.rpush(key, String.valueOf(p));
+                logger.debug("Caching {} candles for {}", candles.size(), key);
+                NavigableMap<Long, Double> map = memoryCache.computeIfAbsent(key, k -> new TreeMap<>());
+                for (Candle c : candles) {
+                    jedis.zadd(key, c.timestamp, String.valueOf(c.close));
+                    map.put(c.timestamp, c.close);
+                    if (c.timestamp >= fromEpoch && c.timestamp <= toEpoch) {
+                        prices.add(c.close);
+                    }
                 }
-                memoryCache.put(key, prices);
             } catch (JedisConnectionException e) {
                 logger.error("Redis not available", e);
                 throw new IllegalStateException("Redis not available", e);
             }
         }
         return prices;
-    }
-
-    private List<Double> parse(List<String> values) {
-        List<Double> list = new ArrayList<>();
-        for (String v : values) {
-            list.add(Double.parseDouble(v));
-        }
-        return list;
     }
 
     private static Set<String> loadNiftySymbols() {
@@ -99,7 +137,7 @@ public class QuoteService {
         return set;
     }
 
-    private List<Double> fetchFromKite(String symbol, String period, String from, String to) {
+    protected List<Candle> fetchFromKite(String symbol, String period, String from, String to) {
         String apiKey = Config.get("kite_api_key");
         String accessToken = RedisStore.get("kite_access_token");
         if (accessToken == null || accessToken.isEmpty()) {
@@ -120,9 +158,11 @@ public class QuoteService {
             }
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(conn.getInputStream());
-            List<Double> list = new ArrayList<>();
+            List<Candle> list = new ArrayList<>();
             for (JsonNode candle : root.path("data").path("candles")) {
-                list.add(candle.get(4).asDouble()); // close price
+                String ts = candle.get(0).asText();
+                double close = candle.get(4).asDouble();
+                list.add(new Candle(parseTimestamp(ts), close));
             }
             logger.debug("Received {} candles for {}", list.size(), symbol);
             return list;
