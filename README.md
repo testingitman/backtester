@@ -12,7 +12,7 @@ This project provides a Java Spring Boot backend and a React frontend for runnin
 
 ## Backend
 
-The backend is located in the `backend` directory. It exposes a REST endpoint `/api/backtest` that accepts strategy name, symbol, candle period (e.g. `1d`, `1m`, `5m`, `30m`, `1w`), date range and initial capital. Supported strategies now cover a wide selection including:
+The backend is located in the `backend` directory. It exposes a REST endpoint `/api/backtest` that accepts strategy name, symbol, candle period and date range along with the initial capital. Candle periods correspond to the Zerodha KITE interval names such as `minute`, `day`, `3minute`, `5minute`, `10minute`, `15minute`, `30minute` and `60minute`. Supported strategies now cover a wide selection including:
 
 * `RSI`, `MACD`, `BollingerBands`, `Supertrend`
 * `RSI_SMA`, `MACD_CROSS`, `Bollinger_Reversal`, `Golden_Cross`

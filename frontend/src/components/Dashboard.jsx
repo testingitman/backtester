@@ -42,13 +42,13 @@ function ConfidenceTable() {
 }
 
 export default function Dashboard() {
-  const [form, setForm] = useState({ strategy: 'RSI', symbol: '', period: '1d', start: '', end: '', capital: 100000 })
+  const [form, setForm] = useState({ strategy: 'RSI', symbol: '', period: 'day', start: '', end: '', capital: 100000 })
   const [errors, setErrors] = useState({})
   const [result, setResult] = useState(null)
   const [instruments, setInstruments] = useState([])
 
   const strategies = ['RSI', 'MACD', 'BollingerBands', 'Supertrend']
-  const periods = ['1d', '5m']
+  const periods = ['minute', 'day', '3minute', '5minute', '10minute', '15minute', '30minute', '60minute']
 
   useEffect(() => {
     const load = async () => {

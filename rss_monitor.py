@@ -56,6 +56,12 @@ def process_entry(entry):
     text = resp.choices[0].message.content.strip()
     try:
         data = json.loads(text)
+        tokens = data.get("tokens")
+        if isinstance(tokens, str):
+            tokens = [t.strip().strip("'\"") for t in tokens.split(',') if t.strip()]
+        elif isinstance(tokens, list):
+            tokens = [str(t).strip("'\"") for t in tokens]
+        data["tokens"] = tokens
     except json.JSONDecodeError:
         data = {"error": "Failed to parse", "raw": text}
     stored = {
