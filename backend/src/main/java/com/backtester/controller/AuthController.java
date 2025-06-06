@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -19,10 +21,20 @@ import java.security.MessageDigest;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     @GetMapping("/login")
     public void login(HttpServletResponse response) throws IOException {
         String apiKey = Config.get("kite_api_key");
         String redirect = Config.get("kite_redirect_uri");
+        if (apiKey == null || apiKey.isEmpty() || redirect == null || redirect.isEmpty()) {
+            String missing = (apiKey == null || apiKey.isEmpty()) ? "kite_api_key" : "kite_redirect_uri";
+            logger.error("{} not configured", missing);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            response.setContentType("application/json");
+            response.getWriter().write(String.format("{\"error\": \"%s not configured\"}", missing));
+            return;
+        }
+
         String url = String.format(
                 "https://kite.zerodha.com/connect/login?v=3&api_key=%s&redirect_uri=%s",
                 apiKey,
