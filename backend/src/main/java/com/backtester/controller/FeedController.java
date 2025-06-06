@@ -11,7 +11,8 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/feed")
 public class FeedController {
-    private final Jedis jedis = new Jedis("localhost");
+    // Jedis(String) expects a redis URI; provide host and port explicitly
+    private final Jedis jedis = new Jedis("redis://localhost:6379");
     private final ObjectMapper mapper = new ObjectMapper();
 
     @GetMapping

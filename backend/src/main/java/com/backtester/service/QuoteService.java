@@ -16,7 +16,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class QuoteService {
-    private final Jedis jedis = new Jedis("localhost");
+    // Jedis(String) expects a redis URI starting with redis://
+    private final Jedis jedis = new Jedis("redis://localhost:6379");
     private final Map<String, List<Double>> memoryCache = new ConcurrentHashMap<>();
 
     public List<Double> getPrices(String symbol, String period, String from, String to) {
