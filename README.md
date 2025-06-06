@@ -75,12 +75,12 @@ If you want to access the portal from other machines set `host: '0.0.0.0'` in
 `frontend/vite.config.js` and update `kite_redirect_uri` to match your public
 IP or domain (e.g. `https://172.232.119.157:8080/api/auth/callback`). Restart the
 Spring Boot backend and the Vite dev server after making these changes. Then
-open `http://<your-ip>:5173/login` and click **Login with Zerodha** to begin the
+open `http://172.232.119.157:5173/login` and click **Login with Zerodha** to begin the
 OAuth flow. On success the backend stores the returned access token in memory
 for subsequent API calls.
 
 Set `frontend_url` in `config.yaml` to the address where the React app is served
-(default `http://localhost:5173/`). The backend redirects here after successful
+(default `http://172.232.119.157:5173/`). The backend redirects here after successful
 authentication.
 
 ## RSS Monitor
