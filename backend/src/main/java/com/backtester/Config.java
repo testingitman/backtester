@@ -5,7 +5,6 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Map;
 
 public class Config {
@@ -16,7 +15,7 @@ public class Config {
             ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
             values = mapper.readValue(new File("config.yaml"), Map.class);
         } catch (IOException e) {
-            values = Collections.emptyMap();
+            throw new RuntimeException("Failed to load config.yaml", e);
         }
     }
 
