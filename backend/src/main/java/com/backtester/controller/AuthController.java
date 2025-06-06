@@ -43,7 +43,8 @@ public class AuthController {
     }
 
     @GetMapping("/callback")
-    public String callback(@RequestParam("request_token") String token) throws IOException {
+    public void callback(@RequestParam("request_token") String token,
+                         HttpServletResponse response) throws IOException {
         String apiKey = Config.get("kite_api_key");
         String secret = Config.get("kite_api_secret");
         String checksum = sha256(apiKey + token + secret);
@@ -53,18 +54,24 @@ public class AuthController {
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
         conn.setDoOutput(true);
-        OutputStream os = conn.getOutputStream();
-        os.write(body.getBytes("UTF-8"));
-        os.flush();
-        os.close();
-        if (conn.getResponseCode() != 200) {
-            return "Failed to authenticate";
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(body.getBytes("UTF-8"));
+            os.flush();
         }
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(conn.getInputStream());
-        String access = root.path("data").path("access_token").asText();
-        Config.set("kite_access_token", access);
-        return "Authentication successful";
+        String message;
+        if (conn.getResponseCode() != 200) {
+            logger.error("Failed to authenticate, code {}", conn.getResponseCode());
+            message = "Failed to capture access token";
+        } else {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(conn.getInputStream());
+            String access = root.path("data").path("access_token").asText();
+            Config.set("kite_access_token", access);
+            Config.save();
+            message = "Access token captured successfully";
+        }
+        response.setContentType("text/html");
+        response.getWriter().write("<html><body><h1>" + message + "</h1></body></html>");
     }
 
     private String sha256(String text) {
