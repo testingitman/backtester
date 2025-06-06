@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 export default function SentimentTable() {
   const [items, setItems] = useState([])
   const [trades, setTrades] = useState(() => JSON.parse(localStorage.getItem('trades') || '{}'))
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -15,6 +16,13 @@ export default function SentimentTable() {
     const id = setInterval(load, 10000)
     return () => clearInterval(id)
   }, [])
+
+  const refresh = async () => {
+    setLoading(true)
+    await fetch('/api/feed/remote')
+    await fetch('/api/feed').then(res => res.json()).then(setItems)
+    setLoading(false)
+  }
 
   const execute = (it) => {
     const t = { action: it.analysis?.action || 'Buy', amount: 1, price: it.current }
@@ -34,7 +42,12 @@ export default function SentimentTable() {
 
   return (
     <div className="mt-4">
-      <h3 className="font-semibold mb-2">Sentiment Signals</h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-semibold">Sentiment Signals</h3>
+        <button onClick={refresh} disabled={loading} className="px-2 py-1 bg-blue-600 text-white rounded">
+          {loading ? 'Updating...' : 'Update'}
+        </button>
+      </div>
       <div className="overflow-x-auto">
         <table className="table-auto w-full text-sm">
           <thead>
