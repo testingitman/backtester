@@ -2,6 +2,7 @@ package com.backtester.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.backtester.service.FeedService;
+import com.backtester.service.QuoteService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,9 @@ public class FeedController {
 
     @Autowired
     private FeedService feedService;
+
+    @Autowired
+    private QuoteService quoteService;
 
     @GetMapping
     public ResponseEntity<?> list() {
@@ -47,13 +51,41 @@ public class FeedController {
                     double current = close + (Math.random() - 0.5) * close * 0.02;
                     val.put("current", current);
                     String action = "";
+                    double confidence = 0.0;
+                    List<Map<String, Object>> stocks = new ArrayList<>();
                     if (val.containsKey("analysis")) {
-                        Object a = ((Map<?, ?>) val.get("analysis")).get("action");
+                        Map<?, ?> analysis = (Map<?, ?>) val.get("analysis");
+                        Object a = analysis.get("action");
                         if (a != null) action = a.toString();
+                        Object c = analysis.get("confidence");
+                        if (c instanceof Number) confidence = ((Number) c).doubleValue();
+                        Object tokensObj = analysis.get("tokens");
+                        List<String> tokens = new ArrayList<>();
+                        if (tokensObj instanceof List) {
+                            for (Object t : (List<?>) tokensObj) {
+                                if (t != null) tokens.add(t.toString());
+                            }
+                        } else if (tokensObj instanceof String) {
+                            for (String p : ((String) tokensObj).split(",")) {
+                                String s = p.trim();
+                                if (!s.isEmpty()) tokens.add(s);
+                            }
+                        }
+                        for (String sym : tokens) {
+                            Map<String, Object> sm = new HashMap<>();
+                            sm.put("symbol", sym);
+                            sm.put("token", quoteService.resolveToken(sym));
+                            sm.put("close", close);
+                            sm.put("current", current);
+                            sm.put("action", action);
+                            sm.put("confidence", confidence);
+                            stocks.add(sm);
+                        }
                     }
                     double pct = close != 0 ? (current - close) / close * 100.0 : 0.0;
                     if ("sell".equalsIgnoreCase(action)) pct *= -1;
                     val.put("changePct", pct);
+                    val.put("stocks", stocks);
                     out.add(val);
                 } catch (Exception e) {
                     logger.warn("Failed to parse entry {}", k, e);
