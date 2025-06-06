@@ -79,6 +79,10 @@ open `http://<your-ip>:5173/login` and click **Login with Zerodha** to begin the
 OAuth flow. On success the backend stores the returned access token in memory
 for subsequent API calls.
 
+Set `frontend_url` in `config.yaml` to the address where the React app is served
+(default `http://localhost:5173/`). The backend redirects here after successful
+authentication.
+
 ## RSS Monitor
 
 The `rss_monitor.py` script polls the feed defined in `config.yaml` every five minutes,
