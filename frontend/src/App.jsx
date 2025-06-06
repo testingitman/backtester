@@ -9,6 +9,21 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark)
   }, [dark])
+
+  useEffect(() => {
+    async function verify() {
+      try {
+        const res = await fetch('/api/auth/check')
+        const data = await res.json()
+        if (!data.valid) {
+          window.location.href = '/login'
+        }
+      } catch (err) {
+        window.location.href = '/login'
+      }
+    }
+    verify()
+  }, [])
   return (
     <div className="flex h-screen">
       <Sidebar open={sidebar} onClose={() => setSidebar(false)} />

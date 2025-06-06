@@ -31,9 +31,17 @@ public class BacktestController {
     public ResponseEntity<?> run(@RequestParam String strategy,
                                  @RequestParam String symbol,
                                  @RequestParam String period,
-                                 @RequestParam String from,
-                                 @RequestParam String to,
+                                 @RequestParam(required = false, name = "from") String from,
+                                 @RequestParam(required = false, name = "start") String start,
+                                 @RequestParam(required = false, name = "to") String to,
+                                 @RequestParam(required = false, name = "end") String end,
                                  @RequestParam double capital) {
+        if (from == null) from = start;
+        if (to == null) to = end;
+        if (from == null || to == null) {
+            return ResponseEntity.badRequest().body(
+                    java.util.Collections.singletonMap("error", "Date range required"));
+        }
         Strategy strat = strategyFactory.getStrategy(strategy);
         if (strat == null) {
             return ResponseEntity.badRequest().body(
