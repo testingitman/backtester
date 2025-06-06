@@ -1,6 +1,7 @@
 package com.backtester.controller;
 
 import com.backtester.Config;
+import com.backtester.RedisStore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -67,8 +68,7 @@ public class AuthController {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(conn.getInputStream());
             String access = root.path("data").path("access_token").asText();
-            Config.set("kite_access_token", access);
-            Config.save();
+            RedisStore.set("kite_access_token", access);
             message = "Access token captured successfully";
             if (rssProcess == null || !rssProcess.isAlive()) {
                 try {
@@ -79,14 +79,18 @@ public class AuthController {
                 }
             }
         }
-        response.setContentType("text/html");
-        response.getWriter().write("<html><body><h1>" + message + "</h1></body></html>");
+        if ("Access token captured successfully".equals(message)) {
+            response.sendRedirect("/");
+        } else {
+            response.setContentType("text/html");
+            response.getWriter().write("<html><body><h1>" + message + "</h1></body></html>");
+        }
     }
 
     @GetMapping("/check")
     public java.util.Map<String, Boolean> check() {
         String apiKey = Config.get("kite_api_key");
-        String access = Config.get("kite_access_token");
+        String access = RedisStore.get("kite_access_token");
         if (access == null || access.isEmpty()) {
             return java.util.Map.of("valid", false);
         }
