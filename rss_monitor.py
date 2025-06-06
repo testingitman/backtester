@@ -12,7 +12,8 @@ import yaml
 
 CONFIG = yaml.safe_load(open('config.yaml'))
 
-openai.api_key = CONFIG.get('openai_api_key')
+openai.api_key = CONFIG.get('groq_api_key')
+openai.base_url = "https://api.groq.com/openai/v1"
 TELEGRAM_TOKEN = CONFIG.get('telegram_token')
 TELEGRAM_CHAT = CONFIG.get('telegram_chat_id')
 RSS_URL = CONFIG.get('rss_feed_url')
@@ -23,9 +24,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 PROMPT = (
-    "Analyze this news for trading sentiment: '{title} - {description}'. "
-    "Return JSON with: company, sentiment (positive/neutral/negative), action "
-    "(Buy/Hold/Sell), reason. Get confidence score on a scale of 10."
+    "Analyze this news item and respond with JSON. "
+    "Fields: tokens (list of affected NSE symbols), action (Buy or Sell), "
+    "confidence (0-10), term ('short' or 'long' for expected profit horizon), "
+    "reason. Use concise JSON only. News: '{title} - {description}'."
 )
 
 
