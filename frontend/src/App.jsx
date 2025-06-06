@@ -13,7 +13,11 @@ export default function App() {
   useEffect(() => {
     async function verify() {
       try {
-        const res = await fetch('/api/auth/check')
+        const res = await fetch('/api/auth/validate')
+        if (!res.ok) {
+          window.location.href = '/login'
+          return
+        }
         const data = await res.json()
         if (!data.valid) {
           window.location.href = '/login'
