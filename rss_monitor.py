@@ -20,7 +20,8 @@ RSS_URL = CONFIG.get('rss_feed_url')
 
 r = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG,
+                    format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 PROMPT = (
@@ -40,6 +41,7 @@ def process_entry(entry):
     h = hashlib.sha1(entry.link.encode()).hexdigest()
     try:
         if r.exists(f"headline:{h}"):
+            logger.debug("Skipping already processed entry %s", entry.link)
             return
     except redis.exceptions.ConnectionError as e:
         logger.error("Redis not available", exc_info=e)
@@ -50,6 +52,7 @@ def process_entry(entry):
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}]
     )
+    logger.debug("GPT response: %s", resp)
     text = resp.choices[0].message.content.strip()
     try:
         data = json.loads(text)
@@ -64,6 +67,7 @@ def process_entry(entry):
     }
     try:
         r.set(f"headline:{h}", json.dumps(stored))
+        logger.debug("Stored analysis for %s", entry.link)
     except redis.exceptions.ConnectionError as e:
         logger.error("Redis not available", exc_info=e)
         return
@@ -73,13 +77,17 @@ def process_entry(entry):
     except Exception as e:
         logger.error("Failed to persist feed", exc_info=e)
     send_telegram(f"{entry.title}\n{json.dumps(data, ensure_ascii=False)}")
+    logger.debug("Sent telegram notification for %s", entry.link)
 
 
 if __name__ == "__main__":
     while True:
         try:
+            logger.debug("Fetching RSS feed from %s", RSS_URL)
             feed = feedparser.parse(RSS_URL)
+            logger.debug("Found %d entries", len(feed.entries))
             for e in feed.entries:
+                logger.debug("Processing entry %s", e.link)
                 process_entry(e)
         except Exception as e:
             logger.exception("Error processing feed", exc_info=e)
