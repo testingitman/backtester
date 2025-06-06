@@ -79,6 +79,10 @@ open `http://172.232.119.157:5173/login` and click **Login with Zerodha** to beg
 OAuth flow. On success the backend stores the returned access token in memory
 for subsequent API calls.
 
+All requests to the Kite API must include the access token in an `Authorization`
+header of the form `token <api_key>:<access_token>`. Do not pass the token in
+the query string.
+
 Set `frontend_url` in `config.yaml` to the address where the React app is served
 (default `http://172.232.119.157:5173/`). The backend redirects here after successful
 authentication.

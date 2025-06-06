@@ -102,14 +102,18 @@ public class QuoteService {
     private List<Double> fetchFromKite(String symbol, String period, String from, String to) {
         String apiKey = Config.get("kite_api_key");
         String accessToken = RedisStore.get("kite_access_token");
+        if (accessToken == null || accessToken.isEmpty()) {
+            return new ArrayList<>();
+        }
         String url = String.format(
-                "https://api.kite.trade/instruments/historical/%s/%s?from=%s&to=%s&api_key=%s&access_token=%s",
-                symbol, period, from, to, apiKey, accessToken);
+                "https://api.kite.trade/instruments/historical/%s/%s?from=%s&to=%s",
+                symbol, period, from, to);
         try {
             logger.debug("Requesting data from KITE: {}", url);
             URL u = new URL(url);
             HttpURLConnection conn = (HttpURLConnection) u.openConnection();
             conn.setRequestProperty("X-Kite-Version", "3");
+            conn.setRequestProperty("Authorization", String.format("token %s:%s", apiKey, accessToken));
             conn.setRequestMethod("GET");
             if (conn.getResponseCode() != 200) {
                 return new ArrayList<>();
