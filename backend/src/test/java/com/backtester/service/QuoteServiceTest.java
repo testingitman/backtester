@@ -5,9 +5,8 @@ import org.mockito.Mockito;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.resps.Tuple;
 
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -18,7 +17,7 @@ class QuoteServiceTest {
     @Test
     void returnsPricesFromRedisRange() {
         Jedis jedis = mock(Jedis.class);
-        Set<Tuple> tuples = new LinkedHashSet<>();
+        List<Tuple> tuples = new ArrayList<>();
         tuples.add(new Tuple("100", 1.0));
         tuples.add(new Tuple("101", 2.0));
         when(jedis.exists("123:1d")).thenReturn(true);
@@ -35,7 +34,7 @@ class QuoteServiceTest {
     void fetchesFromKiteWhenCacheEmpty() {
         Jedis jedis = mock(Jedis.class);
         when(jedis.exists(anyString())).thenReturn(false);
-        when(jedis.zrangeByScoreWithScores(anyString(), anyDouble(), anyDouble())).thenReturn(Set.of());
+        when(jedis.zrangeByScoreWithScores(anyString(), anyDouble(), anyDouble())).thenReturn(List.of());
 
         QuoteService service = Mockito.spy(new QuoteService(jedis));
         List<QuoteService.Candle> candles = List.of(new QuoteService.Candle(1L, 100.0));
