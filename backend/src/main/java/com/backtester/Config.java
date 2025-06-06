@@ -20,6 +20,9 @@ public class Config {
                 configFile = new File("../config.yaml");
             }
             values = mapper.readValue(configFile, Map.class);
+            if (!values.containsKey("frontend_url")) {
+                values.put("frontend_url", "http://172.232.119.157:5173/");
+            }
         } catch (IOException e) {
             throw new RuntimeException("Failed to load config.yaml", e);
         }
@@ -27,7 +30,11 @@ public class Config {
 
     public static String get(String key) {
         Object v = values.get(key);
-        return v == null ? null : v.toString();
+        String val = v == null ? null : v.toString();
+        if ((val == null || val.isEmpty()) && "frontend_url".equals(key)) {
+            return "http://172.232.119.157:5173/";
+        }
+        return val;
     }
 
     public static void set(String key, String value) {

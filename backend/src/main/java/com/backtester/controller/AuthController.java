@@ -80,7 +80,8 @@ public class AuthController {
             }
         }
         if ("Access token captured successfully".equals(message)) {
-            response.sendRedirect("/");
+            String home = Config.get("frontend_url");
+            response.sendRedirect(home != null && !home.isEmpty() ? home : "/");
         } else {
             response.setContentType("text/html");
             response.getWriter().write("<html><body><h1>" + message + "</h1></body></html>");
