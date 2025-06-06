@@ -106,6 +106,15 @@ public class AuthController {
         }
     }
 
+    @GetMapping("/validate")
+    public org.springframework.http.ResponseEntity<java.util.Map<String, Boolean>> validate() {
+        java.util.Map<String, Boolean> result = check();
+        if (Boolean.TRUE.equals(result.get("valid"))) {
+            return org.springframework.http.ResponseEntity.ok(result);
+        }
+        return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).body(result);
+    }
+
     private String sha256(String text) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
