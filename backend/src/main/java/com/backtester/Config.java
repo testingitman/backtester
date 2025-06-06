@@ -21,7 +21,7 @@ public class Config {
             }
             values = mapper.readValue(configFile, Map.class);
             if (!values.containsKey("frontend_url")) {
-                values.put("frontend_url", "http://localhost:5173/");
+                values.put("frontend_url", "http://172.232.119.157:5173/");
             }
         } catch (IOException e) {
             throw new RuntimeException("Failed to load config.yaml", e);
@@ -32,7 +32,7 @@ public class Config {
         Object v = values.get(key);
         String val = v == null ? null : v.toString();
         if ((val == null || val.isEmpty()) && "frontend_url".equals(key)) {
-            return "http://localhost:5173/";
+            return "http://172.232.119.157:5173/";
         }
         return val;
     }
