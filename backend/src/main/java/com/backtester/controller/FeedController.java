@@ -44,6 +44,7 @@ public class FeedController {
                 try {
                     Map<String, Object> val = mapper.readValue(jedis.get(k), Map.class);
                     val.put("id", k.substring("headline:".length()));
+                    boolean analysed = Boolean.TRUE.equals(val.get("analysed"));
                     double close = 0.0;
                     if (val.containsKey("close")) {
                         close = ((Number) val.get("close")).doubleValue();
@@ -53,7 +54,7 @@ public class FeedController {
                     String action = "";
                     double confidence = 0.0;
                     List<Map<String, Object>> stocks = new ArrayList<>();
-                    if (val.containsKey("analysis")) {
+                    if (analysed && val.containsKey("analysis")) {
                         Map<?, ?> analysis = (Map<?, ?>) val.get("analysis");
                         Object a = analysis.get("action");
                         if (a != null) action = a.toString();
@@ -86,6 +87,7 @@ public class FeedController {
                     if ("sell".equalsIgnoreCase(action)) pct *= -1;
                     val.put("changePct", pct);
                     val.put("stocks", stocks);
+                    val.put("analysed", analysed);
                     out.add(val);
                 } catch (Exception e) {
                     logger.warn("Failed to parse entry {}", k, e);
@@ -109,6 +111,23 @@ public class FeedController {
     public ResponseEntity<?> remote() {
         Map<String, Object> res = feedService.refreshFeeds();
         return ResponseEntity.ok(res);
+    }
+
+    @DeleteMapping
+    public ResponseEntity<?> clear() {
+        try {
+            Set<String> keys = jedis.keys("headline:*");
+            if (!keys.isEmpty()) {
+                jedis.del(keys.toArray(new String[0]));
+            }
+            Map<String, Object> res = new HashMap<>();
+            res.put("removed", keys.size());
+            return ResponseEntity.ok(res);
+        } catch (Exception e) {
+            logger.error("Failed to clear feed storage", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Failed"));
+        }
     }
 }
 

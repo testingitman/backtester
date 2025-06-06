@@ -3,6 +3,7 @@ package com.backtester.service;
 import com.backtester.Config;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.rometools.rome.feed.synd.SyndEntry;
 import com.rometools.rome.feed.synd.SyndFeed;
 import org.slf4j.Logger;
@@ -18,6 +19,8 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 
 @Service
 public class FeedService {
@@ -66,16 +69,33 @@ public class FeedService {
                 try {
                     String id = sha1(entry.getLink());
                     String key = "headline:" + id;
+                    Map<String, Object> stored;
                     if (jedis.exists(key)) {
-                        continue;
+                        stored = mapper.readValue(jedis.get(key), Map.class);
+                        if (Boolean.TRUE.equals(stored.get("analysed"))) {
+                            continue;
+                        }
+                    } else {
+                        stored = new HashMap<>();
+                        stored.put("title", entry.getTitle());
+                        stored.put("link", entry.getLink());
+                        Date pub = entry.getPublishedDate();
+                        if (pub == null) pub = entry.getUpdatedDate();
+                        long ts = pub != null ? pub.getTime() / 1000 : now;
+                        stored.put("timestamp", ts);
+                        stored.put("close", Math.round((90 + Math.random() * 20) * 100.0) / 100.0);
                     }
-                    Map<String, Object> stored = new HashMap<>();
-                    stored.put("title", entry.getTitle());
-                    stored.put("link", entry.getLink());
-                    Map<String, Object> analysis = analyze(entry.getTitle(), entry.getDescription() != null ? entry.getDescription().getValue() : "");
-                    stored.put("analysis", analysis);
-                    stored.put("timestamp", now);
-                    stored.put("close", Math.round((90 + Math.random() * 20) * 100.0) / 100.0);
+                    Map<String, Object> analysis = analyze(
+                            entry.getTitle(),
+                            entry.getDescription() != null ? entry.getDescription().getValue() : "",
+                            entry.getLink());
+                    if (analysis != null) {
+                        stored.put("analysis", analysis);
+                        stored.put("analysed", true);
+                    } else {
+                        stored.remove("analysis");
+                        stored.put("analysed", false);
+                    }
                     jedis.set(key, mapper.writeValueAsString(stored));
                     try (FileWriter fw = new FileWriter("feed.jsonl", true)) {
                         fw.write(mapper.writeValueAsString(stored));
@@ -102,10 +122,17 @@ public class FeedService {
         }
     }
 
-    private Map<String, Object> analyze(String title, String description) throws Exception {
+    private Map<String, Object> analyze(String title, String description, String link) throws Exception {
+        String content = fetchArticle(link);
+        if (content.length() > 1000) {
+            content = content.substring(0, 1000);
+        }
         String prompt = String.format(
-                "Analyze this news item and respond with JSON. Fields: tokens (list of affected NSE symbols), action (Buy or Sell), confidence (0-10), term ('short' or 'long' for expected profit horizon), reason. Use concise JSON only. News: '%s - %s'.",
-                title, description == null ? "" : description);
+                "Analyze this news item and respond with JSON. Fields: tokens (list of affected NSE scrip names), action (Buy or Sell), confidence (0-10), term ('short' or 'long' for expected profit horizon), reason. Use concise JSON only. News: '%s - %s - %s'.",
+                title,
+                description == null ? "" : description,
+                content);
+
         URL url = new URL("https://api.groq.com/openai/v1/chat/completions");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
@@ -114,9 +141,25 @@ public class FeedService {
         conn.setConnectTimeout(10000);
         conn.setReadTimeout(10000);
         conn.setDoOutput(true);
-        String payload = mapper.writeValueAsString(Collections.singletonMap("model", "gpt-4"));
-        String body = String.format("{\"model\":\"gpt-4\",\"messages\":[{\"role\":\"user\",\"content\":%s}]}", mapper.writeValueAsString(prompt));
+
+        ObjectNode payload = mapper.createObjectNode();
+        payload.put("model", "meta-llama/llama-4-scout-17b-16e-instruct");
+        ObjectNode msg = mapper.createObjectNode();
+        msg.put("role", "user");
+        msg.put("content", prompt);
+        payload.putArray("messages").add(msg);
+        payload.put("temperature", 1);
+        payload.put("max_completion_tokens", 1024);
+        payload.put("top_p", 1);
+        payload.put("stream", false);
+        String body = mapper.writeValueAsString(payload);
+
         conn.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
+        int code = conn.getResponseCode();
+        if (code != 200) {
+            logger.warn("Groq API returned {}", code);
+            return null;
+        }
         JsonNode root = mapper.readTree(conn.getInputStream());
         String text = root.path("choices").get(0).path("message").path("content").asText().trim();
         try {
@@ -146,5 +189,16 @@ public class FeedService {
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) sb.append(String.format("%02x", b));
         return sb.toString();
+    }
+
+    private String fetchArticle(String link) {
+        try {
+            Document doc = Jsoup.connect(link).userAgent("Mozilla/5.0")
+                    .timeout(10000).get();
+            return doc.text();
+        } catch (Exception e) {
+            logger.warn("Failed to fetch article {}", link, e);
+            return "";
+        }
     }
 }

@@ -4,6 +4,7 @@ export default function SentimentTable() {
   const [items, setItems] = useState([])
   const [trades, setTrades] = useState(() => JSON.parse(localStorage.getItem('trades') || '{}'))
   const [loading, setLoading] = useState(false)
+  const [dialog, setDialog] = useState(null)
 
   useEffect(() => {
     const load = async () => {
@@ -24,11 +25,36 @@ export default function SentimentTable() {
     setLoading(false)
   }
 
-  const execute = (key, action, price) => {
-    const t = { action, amount: 1, price }
-    const next = { ...trades, [key]: t }
+  const openDialog = async (symbol, key, action, price) => {
+    setDialog({ symbol, key, action, price, amount: price, quantity: 1, balance: 0 })
+    try {
+      const res = await fetch('/api/order/balance')
+      const data = await res.json()
+      if (data.cash) {
+        setDialog(d => ({ ...d, balance: data.cash }))
+      }
+    } catch (err) {
+      console.error('Failed to fetch balance', err)
+    }
+  }
+
+  const updateAmount = v => {
+    setDialog(d => ({ ...d, amount: v, quantity: v / d.price }))
+  }
+
+  const updateQty = v => {
+    setDialog(d => ({ ...d, quantity: v, amount: v * d.price }))
+  }
+
+  const placeOrder = async () => {
+    if (!dialog) return
+    const body = { symbol: dialog.symbol, side: dialog.action, quantity: Math.round(dialog.quantity), price: dialog.price }
+    await fetch('/api/order/place', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const t = { action: dialog.action, amount: dialog.amount, price: dialog.price }
+    const next = { ...trades, [dialog.key]: t }
     setTrades(next)
     localStorage.setItem('trades', JSON.stringify(next))
+    setDialog(null)
   }
 
   // previous table used liveStatus/bookedPct; kept for backward compatibility
@@ -80,7 +106,7 @@ export default function SentimentTable() {
                       <td className="p-2 text-right">{it.stocks[0].current?.toFixed(2)}</td>
                       <td className="p-2 text-center">{it.stocks[0].confidence?.toFixed(1)}</td>
                       <td className="p-2 text-center">
-                        <button onClick={() => execute(`${it.id}-${it.stocks[0].symbol}`, it.stocks[0].action || 'Buy', it.stocks[0].current)} className="px-2 py-1 bg-green-600 text-white rounded">
+                        <button onClick={() => openDialog(it.stocks[0].symbol, `${it.id}-${it.stocks[0].symbol}`, it.stocks[0].action || 'Buy', it.stocks[0].current)} className="px-2 py-1 bg-green-600 text-white rounded">
                           {it.stocks[0].action || 'Buy'}
                         </button>
                       </td>
@@ -102,7 +128,7 @@ export default function SentimentTable() {
                     <td className="p-2 text-right">{s.current?.toFixed(2)}</td>
                     <td className="p-2 text-center">{s.confidence?.toFixed(1)}</td>
                     <td className="p-2 text-center">
-                      <button onClick={() => execute(`${it.id}-${s.symbol}`, s.action || 'Buy', s.current)} className="px-2 py-1 bg-green-600 text-white rounded">
+                      <button onClick={() => openDialog(s.symbol, `${it.id}-${s.symbol}`, s.action || 'Buy', s.current)} className="px-2 py-1 bg-green-600 text-white rounded">
                         {s.action || 'Buy'}
                       </button>
                     </td>
@@ -113,6 +139,27 @@ export default function SentimentTable() {
           </tbody>
         </table>
       </div>
+      {dialog && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-gray-800 p-4 rounded space-y-2 w-72">
+            <div className="text-sm">Balance: {dialog.balance}</div>
+            <div>
+              <label className="block text-sm">Amount</label>
+              <input type="number" className="w-full p-1 border rounded dark:bg-gray-700" value={dialog.amount}
+                onChange={e => updateAmount(Number(e.target.value))} />
+            </div>
+            <div>
+              <label className="block text-sm">Quantity</label>
+              <input type="number" className="w-full p-1 border rounded dark:bg-gray-700" value={dialog.quantity}
+                onChange={e => updateQty(Number(e.target.value))} />
+            </div>
+            <div className="flex justify-end space-x-2 pt-2">
+              <button onClick={placeOrder} className="px-3 py-1 bg-blue-600 text-white rounded">Place Order</button>
+              <button onClick={() => setDialog(null)} className="px-3 py-1 bg-gray-300 dark:bg-gray-700 rounded">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

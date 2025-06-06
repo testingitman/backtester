@@ -6,7 +6,6 @@ This project provides a Java Spring Boot backend and a React frontend for runnin
 
  - Java 8 or later with Maven
 - Node.js 18+ and npm
-- Python 3.11+ (for `rss_monitor.py`)
 - A Redis server running on `localhost:6379`
 - API keys configured in `config.yaml` for Zerodha KITE (key, secret and redirect URI), OpenAI and Telegram
 
@@ -87,18 +86,3 @@ Set `frontend_url` in `config.yaml` to the address where the React app is served
 (default `http://172.232.119.157:5173/`). The backend redirects here after successful
 authentication.
 
-## RSS Monitor
-
-The `rss_monitor.py` script polls the feed defined in `config.yaml` every five minutes,
-analyzes new headlines with the Groq API and stores the result in Redis. Each analysis
-includes affected NSE tokens, a buy or sell recommendation with a confidence score
-and whether the effect is short or long term. Summaries are also posted to the configured Telegram channel.
-
-Edit `config.yaml` with your Groq API key and Telegram credentials before running and make sure Redis is running.
-
-Install Python dependencies and run the monitor with:
-
-```bash
-pip install -r requirements.txt
-python rss_monitor.py
-```

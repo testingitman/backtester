@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.File;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -24,7 +23,6 @@ import java.security.MessageDigest;
 @RequestMapping("/api/auth")
 public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
-    private static Process rssProcess;
     @GetMapping("/login")
     public void login(HttpServletResponse response) throws IOException {
         logger.debug("Initiating Zerodha login flow");
@@ -74,17 +72,6 @@ public class AuthController {
             logger.debug("Received access token {}", access);
             RedisStore.set("kite_access_token", access);
             message = "Access token captured successfully";
-            if (rssProcess == null || !rssProcess.isAlive()) {
-                try {
-                    ProcessBuilder pb = new ProcessBuilder("python3", "../rss_monitor.py");
-                    pb.redirectOutput(new java.io.File("rss_output.log"));
-                    pb.redirectError(new java.io.File("rss_error.log"));
-                    rssProcess = pb.start();
-                    logger.info("Started RSS monitor process");
-                } catch (IOException ex) {
-                    logger.error("Failed to start rss monitor", ex);
-                }
-            }
         }
         if ("Access token captured successfully".equals(message)) {
             String home = Config.get("frontend_url");
