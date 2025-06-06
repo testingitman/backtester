@@ -39,6 +39,8 @@ During development run:
 cd frontend
 npm install
 npm run dev
+# The dev server proxies all `/api` requests to `http://localhost:8080`,
+# so make sure the Spring Boot backend is running.
 ```
 
 For deployment (e.g. on a DigitalOcean VM) build the static files and serve the
@@ -69,9 +71,10 @@ The API will then be available on `localhost:8080`.
 ## Zerodha Login
 
 Set `kite_api_key`, `kite_api_secret` and `kite_redirect_uri` in `config.yaml`.
-After starting the backend visit `http://localhost:5173/login` (during
-development) and click **Login with Zerodha**. Complete the OAuth flow and the
-backend will store the returned access token in memory.
+Start the Spring Boot backend and the Vite dev server as described above.
+Then open `http://localhost:5173/login` and click **Login with Zerodha** to begin
+the OAuth flow. On success the backend stores the returned access token in
+memory for subsequent API calls.
 
 ## RSS Monitor
 
