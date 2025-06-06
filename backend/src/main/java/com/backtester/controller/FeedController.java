@@ -1,11 +1,7 @@
 package com.backtester.controller;
 
-import com.backtester.Config;
-import com.backtester.service.RssService;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rometools.rome.feed.synd.SyndFeed;
-import com.rometools.rome.feed.synd.SyndEntry;
+import com.backtester.service.FeedService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -15,11 +11,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import redis.clients.jedis.Jedis;
-
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 
 @RestController
@@ -29,41 +20,14 @@ public class FeedController {
     private final Jedis jedis = new Jedis("redis://localhost:6379");
     private final ObjectMapper mapper = new ObjectMapper();
     private static final Logger logger = LoggerFactory.getLogger(FeedController.class);
-    private static final String PROMPT = "Analyze this news item and respond with JSON. " +
-            "Fields: tokens (list of affected NSE symbols), action (Buy or Sell), " +
-            "confidence (0-10), term ('short' or 'long' for expected profit horizon), " +
-            "reason. Use concise JSON only. News: '%s - %s'.";
 
     @Autowired
-    private RssService rssService;
-
-    private static final List<String> RSS_FEEDS = List.of(
-            // 📈 Business Standard RSS Feeds
-            "https://www.business-standard.com/rss/markets-106.rss",
-            "https://www.business-standard.com/rss/companies-102.rss",
-            "https://www.business-standard.com/rss/economy-101.rss",
-
-            // 📈 Livemint RSS Feed
-            "https://www.livemint.com/rss/markets",
-
-            // 📈 Moneycontrol RSS Feeds (may be unreliable)
-            "https://www.moneycontrol.com/rss/markets.xml",
-            "https://www.moneycontrol.com/rss/MCtopnews.xml",
-            "https://www.moneycontrol.com/rss/mfnews.xml",
-            "https://www.moneycontrol.com/rss/iponews.xml",
-
-            // 📈 Economic Times RSS Feeds
-            "https://economictimes.indiatimes.com/rssfeedsdefault.cms",
-            "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
-            "https://economictimes.indiatimes.com/markets/sensex/rssfeeds/2146841734.cms",
-            "https://economictimes.indiatimes.com/markets/ipos/rssfeeds/70323525.cms"
-    );
+    private FeedService feedService;
 
     @GetMapping
     public ResponseEntity<?> list() {
-        // refresh the feed from remote sources before listing
         try {
-            remote();
+            feedService.refreshFeeds();
         } catch (Exception e) {
             logger.warn("Failed to refresh feed", e);
         }
@@ -108,91 +72,11 @@ public class FeedController {
         }
     }
 
-    private Map<String, Object> analyze(String title, String description) {
-        String prompt = String.format(PROMPT, title, description == null ? "" : description);
-        try {
-            URL url = new URL("https://api.groq.com/openai/v1/chat/completions");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setRequestProperty("Authorization", "Bearer " + Config.get("groq_api_key"));
-            conn.setConnectTimeout(10000);
-            conn.setReadTimeout(10000);
-            conn.setDoOutput(true);
-            String payload = mapper.writeValueAsString(Map.of(
-                    "model", "gpt-4",
-                    "messages", List.of(Map.of("role", "user", "content", prompt))
-            ));
-            conn.getOutputStream().write(payload.getBytes(StandardCharsets.UTF_8));
-            JsonNode root = mapper.readTree(conn.getInputStream());
-            String text = root.path("choices").get(0).path("message").path("content").asText().trim();
-            Map<String, Object> data;
-            try {
-                data = mapper.readValue(text, Map.class);
-                Object tokens = data.get("tokens");
-                if (tokens instanceof String) {
-                    String[] parts = ((String) tokens).split(",");
-                    List<String> list = new ArrayList<>();
-                    for (String p : parts) {
-                        String t = p.trim().replaceAll("^['\"]|['\"]$", "");
-                        if (!t.isEmpty()) list.add(t);
-                    }
-                    data.put("tokens", list);
-                }
-            } catch (Exception e) {
-                data = new HashMap<>();
-                data.put("error", "Failed to parse");
-                data.put("raw", text);
-            }
-            return data;
-        } catch (Exception e) {
-            logger.error("Failed to analyze feed", e);
-            Map<String, Object> err = new HashMap<>();
-            err.put("error", "Request failed");
-            err.put("message", e.getMessage());
-            return err;
-        }
-    }
 
     @GetMapping("/remote")
     public ResponseEntity<?> remote() {
-        int processed = 0;
-        for (String url : RSS_FEEDS) {
-            SyndFeed feed = rssService.fetchFeed(url);
-            if (feed == null) {
-                continue;
-            }
-            for (SyndEntry entry : feed.getEntries()) {
-                try {
-                    String id = sha1(entry.getLink());
-                    String key = "headline:" + id;
-                    if (jedis.exists(key)) {
-                        continue;
-                    }
-                    Map<String, Object> stored = new HashMap<>();
-                    stored.put("title", entry.getTitle());
-                    stored.put("link", entry.getLink());
-                    Map<String, Object> analysis = analyze(entry.getTitle(),
-                            entry.getDescription() != null ? entry.getDescription().getValue() : "");
-                    stored.put("analysis", analysis);
-                    stored.put("timestamp", System.currentTimeMillis() / 1000);
-                    stored.put("close", Math.round((90 + Math.random() * 20) * 100.0) / 100.0);
-                    jedis.set(key, mapper.writeValueAsString(stored));
-                    processed++;
-                } catch (Exception e) {
-                    logger.warn("Failed to process entry {}", entry.getLink(), e);
-                }
-            }
-        }
-        return ResponseEntity.ok(Map.of("processed", processed));
-    }
-
-    private String sha1(String input) throws Exception {
-        MessageDigest md = MessageDigest.getInstance("SHA-1");
-        byte[] bytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) sb.append(String.format("%02x", b));
-        return sb.toString();
+        Map<String, Object> res = feedService.refreshFeeds();
+        return ResponseEntity.ok(res);
     }
 }
 

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import ResultCard from './ResultCard.jsx'
-import SentimentTable from './SentimentTable.jsx'
 
 function ConfidenceTable() {
   const stored = JSON.parse(localStorage.getItem('confidence_investment') || '{}')
@@ -132,7 +131,6 @@ export default function Dashboard() {
       </form>
       <ResultCard result={result} />
       <ConfidenceTable />
-      <SentimentTable />
     </div>
   )
 }
