@@ -5,6 +5,8 @@ export default function SentimentTable() {
   const [trades, setTrades] = useState(() => JSON.parse(localStorage.getItem('trades') || '{}'))
   const [loading, setLoading] = useState(false)
   const [dialog, setDialog] = useState(null)
+  const [query, setQuery] = useState('')
+  const [answer, setAnswer] = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -25,6 +27,22 @@ export default function SentimentTable() {
     setLoading(false)
   }
 
+  const clearFeeds = async () => {
+    await fetch('/api/feed', { method: 'DELETE' })
+    setItems([])
+  }
+
+  const runQuery = async () => {
+    if (!query.trim()) return
+    const res = await fetch('/api/grok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: query })
+    })
+    const data = await res.json()
+    setAnswer(data.answer || JSON.stringify(data))
+  }
+
   const openDialog = async (symbol, key, action, price) => {
     setDialog({ symbol, key, action, price, amount: price, quantity: 1, balance: 0 })
     try {
@@ -38,8 +56,8 @@ export default function SentimentTable() {
     }
   }
 
-  const updateAmount = v => {
-    setDialog(d => ({ ...d, amount: v, quantity: v / d.price }))
+  const updatePrice = v => {
+    setDialog(d => ({ ...d, price: v, amount: v * d.quantity }))
   }
 
   const updateQty = v => {
@@ -68,12 +86,18 @@ export default function SentimentTable() {
 
   return (
     <div className="mt-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-wrap items-center justify-between mb-2 space-y-2 md:space-y-0">
         <h3 className="font-semibold">Sentiment Signals</h3>
-        <button onClick={refresh} disabled={loading} className="px-2 py-1 bg-blue-600 text-white rounded">
-          {loading ? 'Updating...' : 'Update'}
-        </button>
+        <div className="flex items-center space-x-2">
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Ask Grok" className="p-1 border rounded dark:bg-gray-700" />
+          <button onClick={runQuery} className="px-2 py-1 bg-purple-600 text-white rounded">Ask</button>
+          <button onClick={clearFeeds} className="px-2 py-1 bg-red-600 text-white rounded">Clear</button>
+          <button onClick={refresh} disabled={loading} className="px-2 py-1 bg-blue-600 text-white rounded">
+            {loading ? 'Updating...' : 'Update'}
+          </button>
+        </div>
       </div>
+      {answer && <div className="mb-2 text-sm p-2 bg-gray-200 dark:bg-gray-700 rounded">{answer}</div>}
       <div className="overflow-x-auto">
         <table className="table-auto w-full text-sm">
           <thead>
@@ -144,15 +168,16 @@ export default function SentimentTable() {
           <div className="bg-white dark:bg-gray-800 p-4 rounded space-y-2 w-72">
             <div className="text-sm">Balance: {dialog.balance}</div>
             <div>
-              <label className="block text-sm">Amount</label>
-              <input type="number" className="w-full p-1 border rounded dark:bg-gray-700" value={dialog.amount}
-                onChange={e => updateAmount(Number(e.target.value))} />
+              <label className="block text-sm">Price</label>
+              <input type="number" className="w-full p-1 border rounded dark:bg-gray-700" value={dialog.price}
+                onChange={e => updatePrice(Number(e.target.value))} />
             </div>
             <div>
               <label className="block text-sm">Quantity</label>
               <input type="number" className="w-full p-1 border rounded dark:bg-gray-700" value={dialog.quantity}
                 onChange={e => updateQty(Number(e.target.value))} />
             </div>
+            <div className="text-sm">Amount: {dialog.amount.toFixed(2)}</div>
             <div className="flex justify-end space-x-2 pt-2">
               <button onClick={placeOrder} className="px-3 py-1 bg-blue-600 text-white rounded">Place Order</button>
               <button onClick={() => setDialog(null)} className="px-3 py-1 bg-gray-300 dark:bg-gray-700 rounded">Cancel</button>
