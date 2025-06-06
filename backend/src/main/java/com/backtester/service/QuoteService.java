@@ -84,7 +84,7 @@ public class QuoteService {
 
             if (jedis.exists(key)) {
                 logger.debug("Returning prices from redis cache for {}", key);
-                Set<Tuple> tuples = jedis.zrangeByScoreWithScores(key, fromEpoch, toEpoch);
+                List<Tuple> tuples = jedis.zrangeByScoreWithScores(key, fromEpoch, toEpoch);
                 if (!tuples.isEmpty()) {
                     List<Double> prices = new ArrayList<>();
                     for (Tuple t : tuples) {
