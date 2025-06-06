@@ -3,6 +3,7 @@ package com.backtester.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.backtester.Config;
+import com.backtester.RedisStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -66,7 +67,7 @@ public class QuoteService {
 
     private List<Double> fetchFromKite(String symbol, String period, String from, String to) {
         String apiKey = Config.get("kite_api_key");
-        String accessToken = Config.get("kite_access_token");
+        String accessToken = RedisStore.get("kite_access_token");
         String url = String.format(
                 "https://api.kite.trade/instruments/historical/%s/%s?from=%s&to=%s&api_key=%s&access_token=%s",
                 symbol, period, from, to, apiKey, accessToken);
