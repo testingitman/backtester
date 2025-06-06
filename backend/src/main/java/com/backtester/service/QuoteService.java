@@ -9,6 +9,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisConnectionException;
+import org.springframework.core.io.ClassPathResource;
+
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -28,6 +35,7 @@ public class QuoteService {
     private final Map<String, List<Double>> memoryCache = new ConcurrentHashMap<>();
     private List<Map<String, String>> instrumentCache = null;
     private static final Logger logger = LoggerFactory.getLogger(QuoteService.class);
+    private static final Set<String> NIFTY_SYMBOLS = loadNiftySymbols();
 
     public List<Double> getPrices(String symbol, String period, String from, String to) {
         String token = resolveToken(symbol);
@@ -74,6 +82,23 @@ public class QuoteService {
         return list;
     }
 
+    private static Set<String> loadNiftySymbols() {
+        Set<String> set = new HashSet<>();
+        try {
+            ClassPathResource res = new ClassPathResource("nifty500.txt");
+            InputStream is = res.getInputStream();
+            BufferedReader br = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (!line.isEmpty()) set.add(line);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load nifty500 list", e);
+        }
+        return set;
+    }
+
     private List<Double> fetchFromKite(String symbol, String period, String from, String to) {
         String apiKey = Config.get("kite_api_key");
         String accessToken = RedisStore.get("kite_access_token");
@@ -111,7 +136,7 @@ public class QuoteService {
             String json = jedis.get("instruments");
             if (json != null) {
                 ObjectMapper mapper = new ObjectMapper();
-                instrumentCache = mapper.readValue(json, List.class);
+                instrumentCache = filterNifty(mapper.readValue(json, List.class));
                 return instrumentCache;
             }
         } catch (JedisConnectionException | IOException e) {
@@ -119,6 +144,7 @@ public class QuoteService {
         }
         List<Map<String, String>> data = fetchInstrumentDump();
         if (data != null) {
+            data = filterNifty(data);
             try {
                 jedis.set("instruments", new ObjectMapper().writeValueAsString(data));
             } catch (JedisConnectionException | IOException e) {
@@ -127,6 +153,13 @@ public class QuoteService {
         }
         instrumentCache = data;
         return data;
+    }
+
+    private List<Map<String, String>> filterNifty(List<Map<String, String>> list) {
+        if (list == null) return new ArrayList<>();
+        return list.stream()
+                .filter(m -> NIFTY_SYMBOLS.contains(m.get("tradingsymbol")))
+                .collect(Collectors.toList());
     }
 
     private List<Map<String, String>> fetchInstrumentDump() {
