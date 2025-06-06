@@ -11,9 +11,12 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.exceptions.JedisConnectionException;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.BufferedReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,11 +26,13 @@ public class QuoteService {
     // Jedis(String) expects a redis URI starting with redis://
     private final Jedis jedis = new Jedis("redis://localhost:6379");
     private final Map<String, List<Double>> memoryCache = new ConcurrentHashMap<>();
+    private List<Map<String, String>> instrumentCache = null;
     private static final Logger logger = LoggerFactory.getLogger(QuoteService.class);
 
     public List<Double> getPrices(String symbol, String period, String from, String to) {
-        String key = symbol + ":" + period + ":" + from + ":" + to;
-        logger.debug("Fetching prices for {} {} from {} to {}", symbol, period, from, to);
+        String token = resolveToken(symbol);
+        String key = token + ":" + period + ":" + from + ":" + to;
+        logger.debug("Fetching prices for {} {} from {} to {}", token, period, from, to);
         try {
             if (memoryCache.containsKey(key)) {
                 logger.debug("Returning prices from memory cache for {}", key);
@@ -44,7 +49,7 @@ public class QuoteService {
         }
 
         // Placeholder for Zerodha KITE API call
-        List<Double> prices = fetchFromKite(symbol, period, from, to);
+        List<Double> prices = fetchFromKite(token, period, from, to);
 
         if (prices != null) {
             try {
@@ -96,5 +101,80 @@ public class QuoteService {
             e.printStackTrace();
             return new ArrayList<>();
         }
+    }
+
+    public synchronized List<Map<String, String>> getInstruments() {
+        if (instrumentCache != null) {
+            return instrumentCache;
+        }
+        try {
+            String json = jedis.get("instruments");
+            if (json != null) {
+                ObjectMapper mapper = new ObjectMapper();
+                instrumentCache = mapper.readValue(json, List.class);
+                return instrumentCache;
+            }
+        } catch (JedisConnectionException | IOException e) {
+            logger.error("Redis not available", e);
+        }
+        List<Map<String, String>> data = fetchInstrumentDump();
+        if (data != null) {
+            try {
+                jedis.set("instruments", new ObjectMapper().writeValueAsString(data));
+            } catch (JedisConnectionException | IOException e) {
+                logger.error("Redis not available", e);
+            }
+        }
+        instrumentCache = data;
+        return data;
+    }
+
+    private List<Map<String, String>> fetchInstrumentDump() {
+        String apiKey = Config.get("kite_api_key");
+        String accessToken = RedisStore.get("kite_access_token");
+        if (accessToken == null || accessToken.isEmpty()) {
+            return new ArrayList<>();
+        }
+        try {
+            logger.debug("Fetching instrument dump from KITE");
+            URL u = new URL("https://api.kite.trade/instruments");
+            HttpURLConnection conn = (HttpURLConnection) u.openConnection();
+            conn.setRequestProperty("X-Kite-Version", "3");
+            conn.setRequestProperty("Authorization", "token " + apiKey + ":" + accessToken);
+            conn.setRequestMethod("GET");
+            if (conn.getResponseCode() != 200) {
+                logger.warn("Instruments request failed with code {}", conn.getResponseCode());
+                return new ArrayList<>();
+            }
+            BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String line = br.readLine(); // header
+            List<Map<String, String>> list = new ArrayList<>();
+            while ((line = br.readLine()) != null) {
+                String[] p = line.split(",", -1);
+                if (p.length > 3) {
+                    Map<String, String> m = new HashMap<>();
+                    m.put("token", p[0]);
+                    m.put("tradingsymbol", p[2]);
+                    m.put("name", p[3]);
+                    list.add(m);
+                }
+            }
+            return list;
+        } catch (IOException e) {
+            logger.error("Failed to fetch instruments", e);
+            return new ArrayList<>();
+        }
+    }
+
+    private String resolveToken(String symbol) {
+        if (symbol.matches("\\d+")) return symbol;
+        for (Map<String, String> m : getInstruments()) {
+            String ts = m.get("tradingsymbol");
+            String name = m.get("name");
+            if (symbol.equalsIgnoreCase(ts) || symbol.equalsIgnoreCase(name)) {
+                return m.get("token");
+            }
+        }
+        return symbol;
     }
 }
