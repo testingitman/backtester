@@ -67,6 +67,11 @@ def process_entry(entry):
     except redis.exceptions.ConnectionError as e:
         logger.error("Redis not available", exc_info=e)
         return
+    try:
+        with open("feed.jsonl", "a") as f:
+            f.write(json.dumps(stored) + "\n")
+    except Exception as e:
+        logger.error("Failed to persist feed", exc_info=e)
     send_telegram(f"{entry.title}\n{json.dumps(data, ensure_ascii=False)}")
 
 
