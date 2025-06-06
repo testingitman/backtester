@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import ResultCard from './ResultCard.jsx'
 import SentimentTable from './SentimentTable.jsx'
 
@@ -42,12 +42,26 @@ function ConfidenceTable() {
 }
 
 export default function Dashboard() {
-  const [form, setForm] = useState({ strategy: 'RSI', symbol: 'RELIANCE', period: '1d', start: '', end: '', capital: 100000 })
+  const [form, setForm] = useState({ strategy: 'RSI', symbol: '', period: '1d', start: '', end: '', capital: 100000 })
   const [errors, setErrors] = useState({})
   const [result, setResult] = useState(null)
+  const [instruments, setInstruments] = useState([])
 
   const strategies = ['RSI', 'MACD', 'BollingerBands', 'Supertrend']
   const periods = ['1d', '5m']
+
+  useEffect(() => {
+    const load = async () => {
+      const res = await fetch('/api/instruments')
+      const data = await res.json()
+      data.sort((a, b) => a.name.localeCompare(b.name))
+      setInstruments(data)
+      if (data.length && !form.symbol) {
+        setForm(f => ({ ...f, symbol: data[0].token }))
+      }
+    }
+    load()
+  }, [])
 
   const updateForm = e => setForm({ ...form, [e.target.name]: e.target.value })
 
@@ -81,7 +95,11 @@ export default function Dashboard() {
         </div>
         <div>
           <label className="block text-sm">Symbol</label>
-          <input name="symbol" value={form.symbol} onChange={updateForm} placeholder="RELIANCE" className="mt-1 w-full p-2 rounded border dark:bg-gray-700" />
+          <select name="symbol" value={form.symbol} onChange={updateForm} className="mt-1 w-full p-2 rounded border dark:bg-gray-700">
+            {instruments.map(i => (
+              <option key={i.token} value={i.token}>{i.name}</option>
+            ))}
+          </select>
           {errors.symbol && <div className="text-red-500 text-xs">{errors.symbol}</div>}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

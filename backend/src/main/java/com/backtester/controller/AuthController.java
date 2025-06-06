@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.File;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -75,7 +76,10 @@ public class AuthController {
             message = "Access token captured successfully";
             if (rssProcess == null || !rssProcess.isAlive()) {
                 try {
-                    rssProcess = new ProcessBuilder("python3", "../rss_monitor.py").start();
+                    ProcessBuilder pb = new ProcessBuilder("python3", "../rss_monitor.py");
+                    pb.redirectOutput(new java.io.File("rss_output.log"));
+                    pb.redirectError(new java.io.File("rss_error.log"));
+                    rssProcess = pb.start();
                     logger.info("Started RSS monitor process");
                 } catch (IOException ex) {
                     logger.error("Failed to start rss monitor", ex);

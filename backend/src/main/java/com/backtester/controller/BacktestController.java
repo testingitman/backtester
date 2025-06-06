@@ -51,6 +51,11 @@ public class BacktestController {
         }
         try {
             List<Double> prices = quoteService.getPrices(symbol, period, from, to);
+            if (prices == null || prices.isEmpty()) {
+                logger.warn("No price data returned for {} {} {}-{}", symbol, period, from, to);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(java.util.Map.of("error", "No price data available"));
+            }
             BacktestResult result = strat.run(prices, capital);
             double profitPct = (result.getFinalCapital() - result.getInitialCapital()) / result.getInitialCapital() * 100.0;
             historyService.add(String.format("%s %s %.2f%%", strategy, symbol, profitPct));
