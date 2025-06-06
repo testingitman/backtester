@@ -74,6 +74,25 @@ public class AuthController {
         response.getWriter().write("<html><body><h1>" + message + "</h1></body></html>");
     }
 
+    @GetMapping("/check")
+    public java.util.Map<String, Boolean> check() {
+        String apiKey = Config.get("kite_api_key");
+        String access = Config.get("kite_access_token");
+        if (access == null || access.isEmpty()) {
+            return java.util.Map.of("valid", false);
+        }
+        try {
+            URL url = new URL(String.format("https://api.kite.trade/user/profile?api_key=%s&access_token=%s", apiKey, access));
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("X-Kite-Version", "3");
+            boolean ok = conn.getResponseCode() == 200;
+            return java.util.Map.of("valid", ok);
+        } catch (Exception e) {
+            return java.util.Map.of("valid", false);
+        }
+    }
+
     private String sha256(String text) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
