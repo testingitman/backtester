@@ -37,8 +37,36 @@ public class FeedController {
     @Autowired
     private RssService rssService;
 
+    private static final List<String> RSS_FEEDS = List.of(
+            // 📈 Business Standard RSS Feeds
+            "https://www.business-standard.com/rss/markets-106.rss",
+            "https://www.business-standard.com/rss/companies-102.rss",
+            "https://www.business-standard.com/rss/economy-101.rss",
+
+            // 📈 Livemint RSS Feed
+            "https://www.livemint.com/rss/markets",
+
+            // 📈 Moneycontrol RSS Feeds (may be unreliable)
+            "https://www.moneycontrol.com/rss/markets.xml",
+            "https://www.moneycontrol.com/rss/MCtopnews.xml",
+            "https://www.moneycontrol.com/rss/mfnews.xml",
+            "https://www.moneycontrol.com/rss/iponews.xml",
+
+            // 📈 Economic Times RSS Feeds
+            "https://economictimes.indiatimes.com/rssfeedsdefault.cms",
+            "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
+            "https://economictimes.indiatimes.com/markets/sensex/rssfeeds/2146841734.cms",
+            "https://economictimes.indiatimes.com/markets/ipos/rssfeeds/70323525.cms"
+    );
+
     @GetMapping
     public ResponseEntity<?> list() {
+        // refresh the feed from remote sources before listing
+        try {
+            remote();
+        } catch (Exception e) {
+            logger.warn("Failed to refresh feed", e);
+        }
         logger.debug("Fetching RSS feed entries from redis");
         try {
             Set<String> keys = jedis.keys("headline:*");
@@ -128,32 +156,32 @@ public class FeedController {
 
     @GetMapping("/remote")
     public ResponseEntity<?> remote() {
-        String url = Config.get("rss_feed_url");
-        SyndFeed feed = rssService.fetchFeed(url);
-        if (feed == null) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Failed to fetch feed"));
-        }
         int processed = 0;
-        for (SyndEntry entry : feed.getEntries()) {
-            try {
-                String id = sha1(entry.getLink());
-                String key = "headline:" + id;
-                if (jedis.exists(key)) {
-                    continue;
+        for (String url : RSS_FEEDS) {
+            SyndFeed feed = rssService.fetchFeed(url);
+            if (feed == null) {
+                continue;
+            }
+            for (SyndEntry entry : feed.getEntries()) {
+                try {
+                    String id = sha1(entry.getLink());
+                    String key = "headline:" + id;
+                    if (jedis.exists(key)) {
+                        continue;
+                    }
+                    Map<String, Object> stored = new HashMap<>();
+                    stored.put("title", entry.getTitle());
+                    stored.put("link", entry.getLink());
+                    Map<String, Object> analysis = analyze(entry.getTitle(),
+                            entry.getDescription() != null ? entry.getDescription().getValue() : "");
+                    stored.put("analysis", analysis);
+                    stored.put("timestamp", System.currentTimeMillis() / 1000);
+                    stored.put("close", Math.round((90 + Math.random() * 20) * 100.0) / 100.0);
+                    jedis.set(key, mapper.writeValueAsString(stored));
+                    processed++;
+                } catch (Exception e) {
+                    logger.warn("Failed to process entry {}", entry.getLink(), e);
                 }
-                Map<String, Object> stored = new HashMap<>();
-                stored.put("title", entry.getTitle());
-                stored.put("link", entry.getLink());
-                Map<String, Object> analysis = analyze(entry.getTitle(),
-                        entry.getDescription() != null ? entry.getDescription().getValue() : "");
-                stored.put("analysis", analysis);
-                stored.put("timestamp", System.currentTimeMillis() / 1000);
-                stored.put("close", Math.round((90 + Math.random() * 20) * 100.0) / 100.0);
-                jedis.set(key, mapper.writeValueAsString(stored));
-                processed++;
-            } catch (Exception e) {
-                logger.warn("Failed to process entry {}", entry.getLink(), e);
             }
         }
         return ResponseEntity.ok(Map.of("processed", processed));
