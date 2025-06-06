@@ -1,4 +1,5 @@
 openai_api_key: "YOUR_OPENAI_API_KEY"
+groq_api_key: "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"
 telegram_token: "YOUR_TELEGRAM_TOKEN"
 telegram_chat_id: "YOUR_CHAT_ID"
 rss_feed_url: "https://www.moneycontrol.com/rss/markets.xml"

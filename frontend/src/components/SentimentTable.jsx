@@ -57,7 +57,10 @@ export default function SentimentTable() {
           <thead>
             <tr>
               <th className="px-2">Feed</th>
-              <th className="px-2">Rating</th>
+              <th className="px-2">Tokens</th>
+              <th className="px-2">Action</th>
+              <th className="px-2">Conf</th>
+              <th className="px-2">Term</th>
               <th className="px-2">Close</th>
               <th className="px-2">Current</th>
               <th className="px-2">P&L</th>
@@ -70,7 +73,10 @@ export default function SentimentTable() {
             {items.map(it => (
               <tr key={it.id} className="odd:bg-gray-50 dark:odd:bg-gray-700">
                 <td className="p-2">{it.title}</td>
+                <td className="p-2">{(it.analysis?.tokens || []).join(', ')}</td>
                 <td className="p-2 text-center">{it.analysis?.action}</td>
+                <td className="p-2 text-center">{it.analysis?.confidence}</td>
+                <td className="p-2 text-center">{it.analysis?.term}</td>
                 <td className="p-2 text-right">{it.close?.toFixed(2)}</td>
                 <td className="p-2 text-right">{it.current?.toFixed(2)}</td>
                 <td className="p-2 text-right">{bookedPct(it)}</td>

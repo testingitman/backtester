@@ -79,10 +79,11 @@ memory for subsequent API calls.
 ## RSS Monitor
 
 The `rss_monitor.py` script polls the feed defined in `config.yaml` every five minutes,
-analyzes new headlines with GPT-4 and stores the result in Redis. Summaries are
-also posted to the configured Telegram channel.
+analyzes new headlines with the Groq API and stores the result in Redis. Each analysis
+includes affected NSE tokens, a buy or sell recommendation with a confidence score
+and whether the effect is short or long term. Summaries are also posted to the configured Telegram channel.
 
-Edit `config.yaml` with your OpenAI and Telegram credentials before running and make sure Redis is running.
+Edit `config.yaml` with your Groq API key and Telegram credentials before running and make sure Redis is running.
 
 Install Python dependencies and run the monitor with:
 
