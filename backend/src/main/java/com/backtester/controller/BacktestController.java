@@ -36,6 +36,8 @@ public class BacktestController {
                                  @RequestParam(required = false, name = "to") String to,
                                  @RequestParam(required = false, name = "end") String end,
                                  @RequestParam double capital) {
+        logger.debug("Backtest request: strategy={} symbol={} period={} from={} to={} capital={}",
+                strategy, symbol, period, from != null ? from : start, to != null ? to : end, capital);
         if (from == null) from = start;
         if (to == null) to = end;
         if (from == null || to == null) {

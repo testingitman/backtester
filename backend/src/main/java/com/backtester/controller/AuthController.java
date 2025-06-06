@@ -26,6 +26,7 @@ public class AuthController {
     private static Process rssProcess;
     @GetMapping("/login")
     public void login(HttpServletResponse response) throws IOException {
+        logger.debug("Initiating Zerodha login flow");
         String apiKey = Config.get("kite_api_key");
         String redirect = Config.get("kite_redirect_uri");
         if (apiKey == null || apiKey.isEmpty() || redirect == null || redirect.isEmpty()) {
@@ -47,6 +48,7 @@ public class AuthController {
     @GetMapping("/callback")
     public void callback(@RequestParam("request_token") String token,
                          HttpServletResponse response) throws IOException {
+        logger.debug("Received OAuth callback with token {}", token);
         String apiKey = Config.get("kite_api_key");
         String secret = Config.get("kite_api_secret");
         String checksum = sha256(apiKey + token + secret);
@@ -68,6 +70,7 @@ public class AuthController {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(conn.getInputStream());
             String access = root.path("data").path("access_token").asText();
+            logger.debug("Received access token {}", access);
             RedisStore.set("kite_access_token", access);
             message = "Access token captured successfully";
             if (rssProcess == null || !rssProcess.isAlive()) {

@@ -22,8 +22,10 @@ public class FeedController {
 
     @GetMapping
     public ResponseEntity<?> list() {
+        logger.debug("Fetching RSS feed entries from redis");
         try {
             Set<String> keys = jedis.keys("headline:*");
+            logger.debug("Found {} entries in redis", keys.size());
             List<Map<String, Object>> out = new ArrayList<>();
             for (String k : keys) {
                 try {

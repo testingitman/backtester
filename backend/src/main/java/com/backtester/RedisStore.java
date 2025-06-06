@@ -11,7 +11,9 @@ public class RedisStore {
 
     public static String get(String key) {
         try {
-            return jedis.get(key);
+            String val = jedis.get(key);
+            logger.debug("Redis GET {} -> {}", key, val);
+            return val;
         } catch (JedisConnectionException e) {
             logger.error("Redis not available", e);
             return null;
@@ -21,6 +23,7 @@ public class RedisStore {
     public static void set(String key, String value) {
         try {
             jedis.set(key, value);
+            logger.debug("Redis SET {}", key);
         } catch (JedisConnectionException e) {
             logger.error("Redis not available", e);
         }

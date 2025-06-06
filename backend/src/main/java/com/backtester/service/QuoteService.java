@@ -27,10 +27,13 @@ public class QuoteService {
 
     public List<Double> getPrices(String symbol, String period, String from, String to) {
         String key = symbol + ":" + period + ":" + from + ":" + to;
+        logger.debug("Fetching prices for {} {} from {} to {}", symbol, period, from, to);
         try {
             if (memoryCache.containsKey(key)) {
+                logger.debug("Returning prices from memory cache for {}", key);
                 return memoryCache.get(key);
             } else if (jedis.exists(key)) {
+                logger.debug("Returning prices from redis cache for {}", key);
                 List<Double> cached = parse(jedis.lrange(key, 0, -1));
                 memoryCache.put(key, cached);
                 return cached;
@@ -45,6 +48,7 @@ public class QuoteService {
 
         if (prices != null) {
             try {
+                logger.debug("Caching {} prices for {}", prices.size(), key);
                 for (Double p : prices) {
                     jedis.rpush(key, String.valueOf(p));
                 }
@@ -72,6 +76,7 @@ public class QuoteService {
                 "https://api.kite.trade/instruments/historical/%s/%s?from=%s&to=%s&api_key=%s&access_token=%s",
                 symbol, period, from, to, apiKey, accessToken);
         try {
+            logger.debug("Requesting data from KITE: {}", url);
             URL u = new URL(url);
             HttpURLConnection conn = (HttpURLConnection) u.openConnection();
             conn.setRequestProperty("X-Kite-Version", "3");
@@ -85,6 +90,7 @@ public class QuoteService {
             for (JsonNode candle : root.path("data").path("candles")) {
                 list.add(candle.get(4).asDouble()); // close price
             }
+            logger.debug("Received {} candles for {}", list.size(), symbol);
             return list;
         } catch (IOException e) {
             e.printStackTrace();
