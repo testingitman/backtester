@@ -243,7 +243,7 @@ public class QuoteService {
         }
     }
 
-    private String resolveToken(String symbol) {
+    public String resolveToken(String symbol) {
         if (symbol.matches("\\d+")) return symbol;
         for (Map<String, String> m : getInstruments()) {
             String ts = m.get("tradingsymbol");
