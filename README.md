@@ -71,10 +71,13 @@ The API will then be available on `localhost:8080`.
 ## Zerodha Login
 
 Set `kite_api_key`, `kite_api_secret` and `kite_redirect_uri` in `config.yaml`.
-Start the Spring Boot backend and the Vite dev server as described above.
-Then open `http://localhost:5173/login` and click **Login with Zerodha** to begin
-the OAuth flow. On success the backend stores the returned access token in
-memory for subsequent API calls.
+If you want to access the portal from other machines set `host: '0.0.0.0'` in
+`frontend/vite.config.js` and update `kite_redirect_uri` to match your public
+IP or domain (e.g. `http://172.232.119.157:8080/api/auth/callback`). Restart the
+Spring Boot backend and the Vite dev server after making these changes. Then
+open `http://<your-ip>:5173/login` and click **Login with Zerodha** to begin the
+OAuth flow. On success the backend stores the returned access token in memory
+for subsequent API calls.
 
 ## RSS Monitor
 
