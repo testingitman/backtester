@@ -1,6 +1,7 @@
 import hashlib
 import json
 import time
+import random
 
 import feedparser
 import openai
@@ -44,7 +45,13 @@ def process_entry(entry):
         data = json.loads(text)
     except json.JSONDecodeError:
         data = {"error": "Failed to parse", "raw": text}
-    stored = {"title": entry.title, "link": entry.link, "analysis": data}
+    stored = {
+        "title": entry.title,
+        "link": entry.link,
+        "analysis": data,
+        "timestamp": time.time(),
+        "close": round(90 + random.random() * 20, 2),
+    }
     r.set(f"headline:{h}", json.dumps(stored))
     send_telegram(f"{entry.title}\n{json.dumps(data, ensure_ascii=False)}")
 
