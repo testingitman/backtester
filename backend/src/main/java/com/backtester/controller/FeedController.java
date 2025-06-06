@@ -5,6 +5,7 @@ import com.backtester.service.RssService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rometools.rome.feed.synd.SyndFeed;
+import com.rometools.rome.feed.synd.SyndEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -134,7 +135,7 @@ public class FeedController {
                     .body(Map.of("error", "Failed to fetch feed"));
         }
         int processed = 0;
-        for (var entry : feed.getEntries()) {
+        for (SyndEntry entry : feed.getEntries()) {
             try {
                 String id = sha1(entry.getLink());
                 String key = "headline:" + id;
