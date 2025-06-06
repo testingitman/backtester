@@ -3,6 +3,7 @@ package com.backtester.controller;
 import com.backtester.Config;
 import com.backtester.service.RssService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rometools.rome.feed.synd.SyndFeed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -72,7 +73,11 @@ public class FeedController {
     @GetMapping("/remote")
     public ResponseEntity<?> remote() {
         String url = Config.get("rss_feed_url");
-        var feed = rssService.fetchFeed(url);
+        // Explicitly use the SyndFeed type for compatibility with
+        // Java versions prior to 10 where the `var` keyword is not
+        // available. The service always returns a `SyndFeed` instance
+        // or `null` on failure.
+        SyndFeed feed = rssService.fetchFeed(url);
         if (feed == null) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to fetch feed"));
