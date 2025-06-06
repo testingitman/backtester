@@ -22,6 +22,7 @@ import java.security.MessageDigest;
 @RequestMapping("/api/auth")
 public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
+    private static Process rssProcess;
     @GetMapping("/login")
     public void login(HttpServletResponse response) throws IOException {
         String apiKey = Config.get("kite_api_key");
@@ -69,6 +70,14 @@ public class AuthController {
             Config.set("kite_access_token", access);
             Config.save();
             message = "Access token captured successfully";
+            if (rssProcess == null || !rssProcess.isAlive()) {
+                try {
+                    rssProcess = new ProcessBuilder("python3", "../rss_monitor.py").start();
+                    logger.info("Started RSS monitor process");
+                } catch (IOException ex) {
+                    logger.error("Failed to start rss monitor", ex);
+                }
+            }
         }
         response.setContentType("text/html");
         response.getWriter().write("<html><body><h1>" + message + "</h1></body></html>");
