@@ -99,10 +99,11 @@ public class AuthController {
             return java.util.Map.of("valid", false);
         }
         try {
-            URL url = new URL(String.format("https://api.kite.trade/user/profile?api_key=%s&access_token=%s", apiKey, access));
+            URL url = new URL("https://api.kite.trade/user/profile");
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("X-Kite-Version", "3");
+            conn.setRequestProperty("Authorization", String.format("token %s:%s", apiKey, access));
             boolean ok = conn.getResponseCode() == 200;
             return java.util.Map.of("valid", ok);
         } catch (Exception e) {
