@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
+import OrderDialog from './OrderDialog.jsx'
 
 export default function SentimentTable() {
   const [items, setItems] = useState([])
   const [trades, setTrades] = useState(() => JSON.parse(localStorage.getItem('trades') || '{}'))
   const [loading, setLoading] = useState(false)
+  const [dialogItem, setDialogItem] = useState(null)
 
   useEffect(() => {
     const load = async () => {
@@ -25,10 +27,7 @@ export default function SentimentTable() {
   }
 
   const execute = (it) => {
-    const t = { action: it.analysis?.action || 'Buy', amount: 1, price: it.current }
-    const next = { ...trades, [it.id]: t }
-    setTrades(next)
-    localStorage.setItem('trades', JSON.stringify(next))
+    setDialogItem(it)
   }
 
   // previous table used liveStatus/bookedPct; kept for backward compatibility
@@ -87,6 +86,16 @@ export default function SentimentTable() {
           </tbody>
         </table>
       </div>
+      <OrderDialog
+        open={!!dialogItem}
+        item={dialogItem}
+        onClose={() => setDialogItem(null)}
+        onPlaced={(t) => {
+          const next = { ...trades, [dialogItem.id]: t }
+          setTrades(next)
+          localStorage.setItem('trades', JSON.stringify(next))
+        }}
+      />
     </div>
   )
 }
