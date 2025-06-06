@@ -13,7 +13,11 @@ public class Config {
     static {
         try {
             ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-            values = mapper.readValue(new File("config.yaml"), Map.class);
+            File configFile = new File("config.yaml");
+            if (!configFile.exists()) {
+                configFile = new File("../config.yaml");
+            }
+            values = mapper.readValue(configFile, Map.class);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load config.yaml", e);
         }
