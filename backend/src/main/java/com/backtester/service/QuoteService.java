@@ -3,8 +3,11 @@ package com.backtester.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.backtester.Config;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisConnectionException;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -19,25 +22,36 @@ public class QuoteService {
     // Jedis(String) expects a redis URI starting with redis://
     private final Jedis jedis = new Jedis("redis://localhost:6379");
     private final Map<String, List<Double>> memoryCache = new ConcurrentHashMap<>();
+    private static final Logger logger = LoggerFactory.getLogger(QuoteService.class);
 
     public List<Double> getPrices(String symbol, String period, String from, String to) {
         String key = symbol + ":" + period + ":" + from + ":" + to;
-        if (memoryCache.containsKey(key)) {
-            return memoryCache.get(key);
-        } else if (jedis.exists(key)) {
-            List<Double> cached = parse(jedis.lrange(key, 0, -1));
-            memoryCache.put(key, cached);
-            return cached;
+        try {
+            if (memoryCache.containsKey(key)) {
+                return memoryCache.get(key);
+            } else if (jedis.exists(key)) {
+                List<Double> cached = parse(jedis.lrange(key, 0, -1));
+                memoryCache.put(key, cached);
+                return cached;
+            }
+        } catch (JedisConnectionException e) {
+            logger.error("Redis not available", e);
+            throw new IllegalStateException("Redis not available", e);
         }
 
         // Placeholder for Zerodha KITE API call
         List<Double> prices = fetchFromKite(symbol, period, from, to);
 
         if (prices != null) {
-            for (Double p : prices) {
-                jedis.rpush(key, String.valueOf(p));
+            try {
+                for (Double p : prices) {
+                    jedis.rpush(key, String.valueOf(p));
+                }
+                memoryCache.put(key, prices);
+            } catch (JedisConnectionException e) {
+                logger.error("Redis not available", e);
+                throw new IllegalStateException("Redis not available", e);
             }
-            memoryCache.put(key, prices);
         }
         return prices;
     }

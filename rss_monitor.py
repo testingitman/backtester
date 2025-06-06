@@ -2,6 +2,7 @@ import hashlib
 import json
 import time
 import random
+import logging
 
 import feedparser
 import openai
@@ -18,6 +19,9 @@ RSS_URL = CONFIG.get('rss_feed_url')
 
 r = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 PROMPT = (
     "Analyze this news for trading sentiment: '{title} - {description}'. "
     "Return JSON with: company, sentiment (positive/neutral/negative), action "
@@ -32,7 +36,11 @@ def send_telegram(message: str):
 
 def process_entry(entry):
     h = hashlib.sha1(entry.link.encode()).hexdigest()
-    if r.exists(f"headline:{h}"):
+    try:
+        if r.exists(f"headline:{h}"):
+            return
+    except redis.exceptions.ConnectionError as e:
+        logger.error("Redis not available", exc_info=e)
         return
 
     prompt = PROMPT.format(title=entry.title, description=entry.description)
@@ -52,14 +60,21 @@ def process_entry(entry):
         "timestamp": time.time(),
         "close": round(90 + random.random() * 20, 2),
     }
-    r.set(f"headline:{h}", json.dumps(stored))
+    try:
+        r.set(f"headline:{h}", json.dumps(stored))
+    except redis.exceptions.ConnectionError as e:
+        logger.error("Redis not available", exc_info=e)
+        return
     send_telegram(f"{entry.title}\n{json.dumps(data, ensure_ascii=False)}")
 
 
 if __name__ == "__main__":
     while True:
-        feed = feedparser.parse(RSS_URL)
-        for e in feed.entries:
-            process_entry(e)
+        try:
+            feed = feedparser.parse(RSS_URL)
+            for e in feed.entries:
+                process_entry(e)
+        except Exception as e:
+            logger.exception("Error processing feed", exc_info=e)
         time.sleep(300)
 
